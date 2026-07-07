@@ -1,13 +1,13 @@
-// Arcade AI — front-end logic (vanilla JS, no build step).
-// Talks to the real FastAPI backend in web/app.py: /api/games, /api/i18n,
-// /ws/play (live ALE agent stream), /api/teach/sessions, /api/admin/*.
+// Arcade AI — landing / intro logic (vanilla JS, no build step).
+// The landing is a cabinet showcase: pick a game + agent and launch a
+// dedicated play window (/play). The real live WebSocket stream lives in
+// that dedicated window (see play.js), never here — so the intro never shows
+// a "connecting to emulator" state that could contradict the MAME notice.
 
 const state = {
   lang: localStorage.getItem("arcadeia_lang") || (navigator.language || "en").slice(0, 2),
   i18n: {},
   games: [],
-  ws: null,
-  hostedGames: [],
 };
 
 if (!["en", "es"].includes(state.lang)) state.lang = "en";
@@ -37,9 +37,8 @@ function applyI18n() {
 
   renderGamesTable();
   renderHowSteps();
-  renderTraceHeader();
-  renderTeachHeader();
-  updateMameNotice();
+  renderHowToSteps();
+  updateHero();
 }
 
 async function loadI18n(lang) {
@@ -70,23 +69,25 @@ function renderLangSwitch() {
 function setupTabs() {
   $$("#tabs button").forEach((btn) => {
     btn.addEventListener("click", () => {
+      const tab = btn.getAttribute("data-tab");
       $$("#tabs button").forEach((b) => b.classList.remove("active"));
       $$(".tabpanel").forEach((p) => p.classList.remove("active"));
       btn.classList.add("active");
-      $(`#tab-${btn.getAttribute("data-tab")}`).classList.add("active");
+      $(`#tab-${tab}`).classList.add("active");
+      // The cabinet showcase is the intro for the interactive tabs only.
+      $("#hero").style.display = tab === "play" || tab === "ai" ? "" : "none";
     });
   });
 }
 
-// ---------- Play tab: game catalog ----------
+// ---------- games / catalog ----------
 
 async function loadGames() {
   const res = await fetch("/api/games");
   const data = await res.json();
   state.games = data.games;
-  state.hostedGames = data.games.filter((g) => g.hosted).map((g) => g.key);
   renderGamesTable();
-  populateAiGameSelect();
+  populateHeroGameSelect();
 }
 
 function renderGamesTable() {
@@ -95,76 +96,112 @@ function renderGamesTable() {
   $("#games-header").innerHTML = d.gamesHeaders.map((h) => `<th>${h}</th>`).join("");
   const rows = state.games
     .map((g) => {
-      const statusLabel = g.status === "ready" ? d.statusReady : d.statusRomMissing;
+      // "ready" only means "live/playable here" for hosted (ALE) games — a
+      // MAME ROM being present just means it *could* run locally, so it must
+      // never be worded/colored the same as "ready (ALE, live)", or it
+      // contradicts the "requires local MAME" badge right next to it.
+      let statusClass;
+      let statusLabel;
+      if (g.status !== "ready") {
+        statusClass = "needs_rom";
+        statusLabel = d.statusRomMissing;
+      } else if (g.hosted) {
+        statusClass = "ready";
+        statusLabel = d.statusReady;
+      } else {
+        statusClass = "ready-local";
+        statusLabel = d.statusRomReadyLocal;
+      }
       const hostedBadge = g.hosted
         ? `<span class="badge hosted">${d.statusHostedAle}</span>`
-        : `<span class="badge ${g.status}">${d.statusNotHostedMame}</span>`;
+        : `<span class="badge ${statusClass}">${d.statusNotHostedMame}</span>`;
       return `<tr>
         <td>${g.title}</td>
         <td><span class="engine-pill">${g.engine}</span></td>
         <td>${g.year ?? ""}</td>
         <td>${g.agent}</td>
-        <td><span class="badge ${g.status}">${statusLabel}</span> ${hostedBadge}</td>
+        <td><span class="badge ${statusClass}">${statusLabel}</span> ${hostedBadge}</td>
       </tr>`;
     })
     .join("");
   $("#games-body").innerHTML = rows;
 }
 
-function populateAiGameSelect() {
-  const sel = $("#ai-game-select");
+function populateHeroGameSelect() {
+  const sel = $("#hero-game-select");
   sel.innerHTML = "";
   for (const g of state.games) {
     const opt = document.createElement("option");
     opt.value = g.key;
     opt.textContent = `${g.title} (${g.engine})`;
-    if (!g.hosted) opt.dataset.hosted = "false";
+    opt.dataset.hosted = g.hosted ? "true" : "false";
+    opt.dataset.title = g.title;
     sel.appendChild(opt);
   }
-  updateMameNotice();
+  updateHero();
 }
 
-function updateMameNotice() {
-  const sel = $("#ai-game-select");
-  if (!sel || !sel.options.length) return;
-  const opt = sel.options[sel.selectedIndex];
-  const hosted = opt && opt.dataset.hosted !== "false";
+function selectedGame() {
+  const sel = $("#hero-game-select");
+  if (!sel || !sel.options.length) return null;
+  return sel.options[sel.selectedIndex] || null;
+}
+
+// Reflects the currently selected game on the cabinet: marquee title, screen
+// preview state, MAME "not available" notice and whether launching is allowed.
+function updateHero() {
+  const opt = selectedGame();
+  const d = state.i18n;
+  const marquee = $("#marquee-title");
+  const previewTitle = $("#preview-title");
+  const previewHint = $("#preview-hint");
+  const preview = $("#cabinet-preview");
   const notice = $("#mame-notice");
-  const startBtn = $("#ai-start-btn");
+  const launchBtn = $("#hero-launch-btn");
+
+  if (!opt) {
+    if (marquee) marquee.textContent = d.appTitle || "Arcade AI";
+    if (previewTitle) previewTitle.textContent = d.heroSelectGame || "";
+    if (previewHint) previewHint.textContent = "";
+    return;
+  }
+
+  const hosted = opt.dataset.hosted !== "false";
+  const title = opt.dataset.title || opt.value;
+  if (marquee) marquee.textContent = title;
+
   if (hosted) {
-    notice.style.display = "none";
-    startBtn.disabled = false;
+    if (preview) preview.classList.remove("preview-unavailable");
+    if (previewTitle) previewTitle.textContent = d.cabinetPreviewReady || "";
+    if (previewHint) previewHint.textContent = d.cabinetPreviewReadyHint || "";
+    if (notice) notice.style.display = "none";
+    if (launchBtn) launchBtn.disabled = false;
   } else {
-    notice.style.display = "block";
-    const body = (state.i18n.mameNoticeBody || "").replace("{game}", sel.value);
-    $("#mame-notice-body").textContent = body;
-    startBtn.disabled = true;
+    if (preview) preview.classList.add("preview-unavailable");
+    if (previewTitle) previewTitle.textContent = d.cabinetPreviewUnavailable || "";
+    if (previewHint) previewHint.textContent = d.cabinetPreviewUnavailableHint || "";
+    if (notice) {
+      notice.style.display = "block";
+      $("#mame-notice-body").textContent = (d.mameNoticeBody || "").replace("{game}", opt.value);
+    }
+    if (launchBtn) launchBtn.disabled = true;
   }
 }
 
-// ---------- AI plays tab: live stream ----------
-
-let traceRows = [];
-
-function renderTraceHeader() {
-  const d = state.i18n;
-  if (!d.traceHeaders) return;
-  $("#trace-header").innerHTML = d.traceHeaders.map((h) => `<th>${h}</th>`).join("");
-}
-
-function pushTrace(step, decision) {
-  const phase = decision.phase || "–";
-  const reason = decision.reason || "–";
-  const action = decision.action ?? "–";
-  traceRows.unshift({ step, phase, reason, action });
-  traceRows = traceRows.slice(0, 12);
-  $("#trace-body").innerHTML = traceRows
-    .map(
-      (r, i) =>
-        `<tr class="${i === 0 ? "trace-row-new" : ""}"><td>${r.step}</td><td>${r.phase}</td><td>${r.reason}</td><td><code>${r.action}</code></td></tr>`
-    )
-    .join("");
-  $("#trace-empty").style.display = traceRows.length ? "none" : "block";
+// Opens the dedicated, larger play view in a new window. For non-hosted (MAME)
+// games we never launch a stream — the button is disabled and the cabinet
+// already shows the "not available on this server" state.
+function launchPlay() {
+  const opt = selectedGame();
+  if (!opt) return;
+  if (opt.dataset.hosted === "false") {
+    updateHero();
+    return;
+  }
+  const game = opt.value;
+  const agent = $("#hero-agent-select").value;
+  const params = new URLSearchParams({ game, agent, mode: "ai", lang: state.lang });
+  window.open(`/play?${params.toString()}`, "arcadeia_play", "noopener,width=900,height=820");
 }
 
 function renderHowSteps() {
@@ -172,84 +209,22 @@ function renderHowSteps() {
   $("#how-steps").innerHTML = steps.map((s) => `<li>${s}</li>`).join("");
 }
 
-function startAiPlay() {
-  const game = $("#ai-game-select").value;
-  const agent = $("#ai-agent-select").value;
-  if (state.ws) stopAiPlay();
-
-  traceRows = [];
-  $("#trace-body").innerHTML = "";
-  $("#ai-error").textContent = "";
-  $("#crt-placeholder").style.display = "flex";
-  $("#crt-placeholder").textContent = state.i18n.aiConnecting || "Connecting…";
-  $("#game-canvas").style.display = "none";
-
-  const proto = location.protocol === "https:" ? "wss" : "ws";
-  const ws = new WebSocket(`${proto}://${location.host}/ws/play?game=${encodeURIComponent(game)}&agent=${encodeURIComponent(agent)}&fps=20`);
-  state.ws = ws;
-
-  const canvas = $("#game-canvas");
-  const ctx = canvas.getContext("2d");
-  const img = new Image();
-  img.onload = () => ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-  ws.onopen = () => {
-    $("#ai-start-btn").style.display = "none";
-    $("#ai-stop-btn").style.display = "block";
-    $("#ai-live-tag").style.visibility = "visible";
-  };
-
-  ws.onmessage = (evt) => {
-    const msg = JSON.parse(evt.data);
-    if (msg.type === "connected") {
-      $("#crt-placeholder").style.display = "none";
-      canvas.style.display = "block";
-    } else if (msg.type === "frame") {
-      if (msg.frame) img.src = `data:image/jpeg;base64,${msg.frame}`;
-      $("#hud-episode").textContent = msg.episode;
-      $("#hud-step").textContent = msg.step;
-      $("#hud-reward").textContent = msg.reward.toFixed(1);
-      if (msg.decision && Object.keys(msg.decision).length) pushTrace(msg.step, msg.decision);
-    } else if (msg.type === "episode_end") {
-      // keep streaming into the next episode
-    } else if (msg.type === "error") {
-      $("#ai-error").textContent = msg.message;
-      stopAiPlay();
-    }
-  };
-
-  ws.onclose = () => {
-    if (state.ws === ws) stopAiPlay();
-  };
-  ws.onerror = () => {
-    $("#ai-error").textContent = "WebSocket error.";
-  };
-}
-
-function stopAiPlay() {
-  if (state.ws) {
-    try {
-      state.ws.close();
-    } catch (e) {}
-    state.ws = null;
-  }
-  $("#ai-start-btn").style.display = "block";
-  $("#ai-stop-btn").style.display = "none";
-  $("#ai-live-tag").style.visibility = "hidden";
+function renderHowToSteps() {
+  const steps = state.i18n.howToUseSteps || [];
+  const el = $("#howto-steps");
+  if (el) el.innerHTML = steps.map((s) => `<li>${s}</li>`).join("");
 }
 
 // ---------- Teach tab ----------
-
-function renderTeachHeader() {
-  const d = state.i18n;
-  if (!d.teachSessionsHeaders) return;
-  $("#teach-header").innerHTML = d.teachSessionsHeaders.map((h) => `<th>${h}</th>`).join("");
-}
 
 async function loadTeachSessions() {
   const res = await fetch("/api/teach/sessions");
   const data = await res.json();
   const rows = data.sessions || [];
+  const d = state.i18n;
+  if (d.teachSessionsHeaders) {
+    $("#teach-header").innerHTML = d.teachSessionsHeaders.map((h) => `<th>${h}</th>`).join("");
+  }
   $("#teach-body").innerHTML = rows
     .map((s) => `<tr><td><code>${s.name}</code></td><td>${s.markers}</td><td>${s.goals}</td><td>${s.last_frame}</td></tr>`)
     .join("");
@@ -323,9 +298,8 @@ async function init() {
   await loadTeachSessions();
   await loadAdminStatus();
 
-  $("#ai-game-select").addEventListener("change", updateMameNotice);
-  $("#ai-start-btn").addEventListener("click", startAiPlay);
-  $("#ai-stop-btn").addEventListener("click", stopAiPlay);
+  $("#hero-game-select").addEventListener("change", updateHero);
+  $("#hero-launch-btn").addEventListener("click", launchPlay);
   $("#rom-upload-btn").addEventListener("click", () => uploadFile("#rom-file", "#rom-upload-status", "/api/admin/upload-rom"));
   $("#lua-upload-btn").addEventListener("click", () => uploadFile("#lua-file", "#lua-upload-status", "/api/admin/upload-lua"));
 }

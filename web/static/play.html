@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Arcade AI — Play</title>
+<link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body class="play-body">
+  <div class="topbar play-topbar">
+    <div class="brand">
+      <button class="back-btn" id="back-btn" data-i18n="playBack">← Back</button>
+      <h1 id="play-title">🕹️ Arcade AI</h1>
+    </div>
+    <div class="play-meta">
+      <span class="play-agent"><span data-i18n="aiSelectAgent">Agent</span>: <b id="play-agent">–</b></span>
+      <span id="play-live-tag" class="live-tag" style="visibility:hidden;">
+        <span class="live-dot"></span> <span data-i18n="aiLive">LIVE</span>
+      </span>
+    </div>
+  </div>
+
+  <main class="play-main">
+    <!-- Live stream (hosted ALE games) -->
+    <section id="play-stream" class="play-stream" style="display:none;">
+      <div class="play-screen-wrap">
+        <div class="crt play-crt">
+          <div class="placeholder" id="play-placeholder" data-i18n="playOpening">Connecting…</div>
+          <canvas id="play-canvas" width="160" height="210" style="display:none;"></canvas>
+        </div>
+      </div>
+
+      <div class="play-sidebar">
+        <div class="hud play-hud">
+          <span><span data-i18n="aiEpisode">Episode</span>: <b id="hud-episode">–</b></span>
+          <span><span data-i18n="aiStep">Step</span>: <b id="hud-step">–</b></span>
+          <span><span data-i18n="aiReward">Reward</span>: <b id="hud-reward">–</b></span>
+        </div>
+
+        <div class="play-buttons">
+          <button class="secondary" id="stop-btn" data-i18n="aiStop">Stop</button>
+          <button class="primary" id="restart-btn" data-i18n="playRestart">Restart</button>
+        </div>
+
+        <div id="play-error" class="notice-error"></div>
+
+        <div class="card trace-card">
+          <h2 data-i18n="traceTitle">Decision trace (live)</h2>
+          <table>
+            <thead><tr id="trace-header"></tr></thead>
+            <tbody id="trace-body"></tbody>
+          </table>
+          <p id="trace-empty" data-i18n="traceEmpty" style="margin-top:0.5rem;"></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Not available (MAME games on this hosted server) -->
+    <section id="play-unavailable" class="play-unavailable" style="display:none;">
+      <div class="card callout-card">
+        <h2 id="unavailable-title" data-i18n="mameNoticeTitle"></h2>
+        <p id="unavailable-body"></p>
+        <button class="primary" id="unavailable-back-btn" data-i18n="playBack">← Back</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="/static/play.js"></script>
+</body>
+</html>

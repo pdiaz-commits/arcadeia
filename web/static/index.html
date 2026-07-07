@@ -23,8 +23,52 @@
   </nav>
 
   <main>
-    <!-- PLAY TAB -->
+    <!-- CABINET SHOWCASE (intro hero, shown on Play + AI plays tabs) -->
+    <section id="hero" class="hero">
+      <div class="cabinet-stage">
+        <div class="cabinet" id="cabinet">
+          <img class="cabinet-img" src="/static/img/cabinet-astrocity.jpg" alt="Astro City arcade cabinet" />
+          <div class="cabinet-marquee"><span id="marquee-title">Arcade AI</span></div>
+          <div class="cabinet-screen">
+            <div class="cabinet-preview" id="cabinet-preview">
+              <div class="preview-title" id="preview-title"></div>
+              <div class="preview-hint" id="preview-hint"></div>
+            </div>
+          </div>
+        </div>
+        <p class="cabinet-footer" data-i18n="cabinetFooter"></p>
+      </div>
+
+      <div class="card hero-controls">
+        <div class="field">
+          <label data-i18n="aiSelectGame">Game</label>
+          <select id="hero-game-select"></select>
+        </div>
+        <div class="field">
+          <label data-i18n="aiSelectAgent">Agent</label>
+          <select id="hero-agent-select">
+            <option value="heuristic">heuristic</option>
+            <option value="random">random</option>
+          </select>
+        </div>
+        <button class="primary" id="hero-launch-btn" data-i18n="aiStart">AI plays now</button>
+        <p class="hero-hint" data-i18n="playHint"></p>
+
+        <div id="mame-notice" class="callout" style="display:none; margin-top:1rem;">
+          <strong id="mame-notice-title" data-i18n="mameNoticeTitle"></strong>
+          <p id="mame-notice-body" style="margin-bottom:0;"></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- PLAY TAB: how-to + catalog -->
     <section class="tabpanel active" id="tab-play">
+      <div class="card">
+        <h2 data-i18n="howToUseTitle">How to use this demo</h2>
+        <p id="howto-intro" data-i18n="howToUseIntro"></p>
+        <ol id="howto-steps"></ol>
+      </div>
+
       <div class="card">
         <h2 data-i18n="gamesTitle">Game catalog</h2>
         <p id="play-intro" data-i18n="playIntro"></p>
@@ -37,49 +81,8 @@
       </div>
     </section>
 
-    <!-- AI PLAYS TAB -->
+    <!-- AI PLAYS TAB: how the AI decides -->
     <section class="tabpanel" id="tab-ai">
-      <div class="cabinet">
-        <div class="card" style="margin-bottom:0;">
-          <div class="screen-wrap">
-            <div class="crt" id="crt">
-              <div class="placeholder" id="crt-placeholder" data-i18n="aiConnecting">Press "AI plays now"</div>
-              <canvas id="game-canvas" width="160" height="210" style="display:none;"></canvas>
-            </div>
-          </div>
-          <div class="hud">
-            <span><span data-i18n="aiEpisode">Episode</span>: <b id="hud-episode">–</b></span>
-            <span><span data-i18n="aiStep">Step</span>: <b id="hud-step">–</b></span>
-            <span><span data-i18n="aiReward">Reward</span>: <b id="hud-reward">–</b></span>
-          </div>
-          <div id="ai-live-tag" class="live-tag" style="visibility:hidden; margin-top:0.4rem;">
-            <span class="live-dot"></span> <span data-i18n="aiLive">LIVE</span>
-          </div>
-          <div id="ai-error" class="notice-error"></div>
-        </div>
-
-        <div class="card controls-panel" style="margin-bottom:0;">
-          <div class="field">
-            <label data-i18n="aiSelectGame">Game</label>
-            <select id="ai-game-select"></select>
-          </div>
-          <div class="field">
-            <label data-i18n="aiSelectAgent">Agent</label>
-            <select id="ai-agent-select">
-              <option value="heuristic">heuristic</option>
-              <option value="random">random</option>
-            </select>
-          </div>
-          <button class="primary" id="ai-start-btn" data-i18n="aiStart">AI plays now</button>
-          <button class="secondary" id="ai-stop-btn" data-i18n="aiStop" style="display:none;">Stop</button>
-
-          <div id="mame-notice" class="callout" style="display:none; margin-top:1rem;">
-            <strong id="mame-notice-title" data-i18n="mameNoticeTitle"></strong>
-            <p id="mame-notice-body" style="margin-bottom:0;"></p>
-          </div>
-        </div>
-      </div>
-
       <div class="card">
         <h2 data-i18n="howTitle">How does the AI decide?</h2>
         <p data-i18n="howIntro"></p>
@@ -87,12 +90,8 @@
       </div>
 
       <div class="card">
-        <h2 data-i18n="traceTitle">Decision trace (live)</h2>
-        <table>
-          <thead><tr id="trace-header"></tr></thead>
-          <tbody id="trace-body"></tbody>
-        </table>
-        <p id="trace-empty" data-i18n="traceEmpty" style="margin-top:0.5rem;"></p>
+        <h2 data-i18n="traceTitle">Decision trace</h2>
+        <p id="trace-hint" data-i18n="traceEmpty"></p>
       </div>
     </section>
 
@@ -155,7 +154,7 @@
 
   <footer>
     <span data-i18n="footer"></span> ·
-    <a href="https://github.com/" id="repo-link" style="color:var(--accent3);">GitHub</a> ·
+    <a href="https://github.com/pdiaz-commits/arcadeia" id="repo-link" style="color:var(--accent3);">GitHub</a> ·
     <span id="version-tag"></span>
   </footer>
 

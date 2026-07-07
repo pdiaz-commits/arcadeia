@@ -238,6 +238,15 @@ def index() -> FileResponse:
     return FileResponse(str(STATIC_DIR / "index.html"))
 
 
+@app.get("/play")
+def play() -> FileResponse:
+    """Dedicated, larger gameplay view (opened in a new window from the
+    landing cabinet). Reads ?game=&agent=&mode=&lang= on the client and either
+    streams a hosted ALE game over /ws/play or shows a clean 'not available on
+    this hosted server' panel for MAME games — never a stuck spinner."""
+    return FileResponse(str(STATIC_DIR / "play.html"))
+
+
 @app.get("/healthz")
 def healthz() -> JSONResponse:
     return JSONResponse({"ok": True, "version": __version__})

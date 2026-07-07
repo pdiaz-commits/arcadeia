@@ -159,6 +159,7 @@ th { color: var(--text-dim); font-weight: 600; font-size: 0.78rem; text-transfor
   font-weight: 600;
 }
 .badge.ready { background: #12351f; color: var(--accent2); }
+.badge.ready-local { background: #1c2340; color: var(--accent3); }
 .badge.needs_rom { background: #3a2412; color: #ffb266; }
 .badge.hosted { background: #1c2340; color: var(--accent3); }
 
@@ -169,16 +170,6 @@ th { color: var(--text-dim); font-weight: 600; font-size: 0.78rem; text-transfor
   border-radius: 4px;
   border: 1px solid var(--border);
   color: var(--text-dim);
-}
-
-.cabinet {
-  display: grid;
-  grid-template-columns: 1fr 340px;
-  gap: 1.25rem;
-}
-
-@media (max-width: 820px) {
-  .cabinet { grid-template-columns: 1fr; }
 }
 
 .screen-wrap {
@@ -220,6 +211,10 @@ th { color: var(--text-dim); font-weight: 600; font-size: 0.78rem; text-transfor
   font-size: 0.85rem;
   text-align: center;
   padding: 1rem;
+}
+
+.crt .placeholder.placeholder-unavailable {
+  color: #ffb266;
 }
 
 .hud {
@@ -323,3 +318,195 @@ code { font-family: var(--mono); background: #0d0e18; padding: 0.1rem 0.35rem; b
 
 .notice-error { color: #ff8080; font-size: 0.85rem; }
 .notice-ok { color: var(--accent2); font-size: 0.85rem; }
+
+/* ---------- Cabinet showcase (intro hero) ---------- */
+
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 1.5rem;
+  align-items: start;
+  margin-bottom: 1.4rem;
+}
+@media (max-width: 820px) {
+  .hero { grid-template-columns: 1fr; }
+}
+
+.cabinet-stage { display: flex; flex-direction: column; align-items: center; }
+
+.cabinet {
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+  container-type: inline-size;
+}
+
+.cabinet-img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 4px;
+}
+
+/* Opaque panel covering the cabinet's original "ASTRO CITY" marquee text.
+   Geometry ported verbatim from the canvas mockup (arcade-ai-web-mockup). */
+.cabinet-marquee {
+  position: absolute;
+  left: 30%;
+  top: 8%;
+  width: 44%;
+  height: 9.5%;
+  background: #0a0a12;
+  border: 2px solid #2f6fb0;
+  border-radius: 3px;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  overflow: hidden;
+}
+.cabinet-marquee span {
+  font-family: "Arial Black", Arial, sans-serif;
+  /* Sized against the cabinet width (container query) so it never blows up on
+     wide viewports the way a raw vw unit would, and even long titles like
+     "Tehkan World Cup" / "Ghosts N Goblins" fit on one line. */
+  font-size: clamp(9px, 3.3cqw, 16px);
+  font-weight: 900;
+  letter-spacing: 0.01em;
+  color: #f23c3c;
+  text-align: center;
+  line-height: 1.1;
+  text-transform: uppercase;
+  white-space: nowrap;
+  max-width: 96%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-shadow:
+    -1.5px -1.5px 0 #fff, 1.5px -1.5px 0 #fff, -1.5px 1.5px 0 #fff, 1.5px 1.5px 0 #fff,
+    0 0 3px rgba(0, 0, 0, 0.4);
+}
+
+/* CRT bezel area — SCREEN_BOX coords from the mockup. */
+.cabinet-screen {
+  position: absolute;
+  left: 33.5%;
+  top: 21%;
+  width: 38%;
+  height: 27.5%;
+  overflow: hidden;
+  background: #000;
+}
+.cabinet-preview {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.4rem;
+  text-align: center;
+  background: radial-gradient(120% 90% at 50% 20%, #12351f66, #05060a 75%);
+}
+.cabinet-preview .preview-title {
+  color: var(--accent2);
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: clamp(9px, 2.4vw, 14px);
+  letter-spacing: 0.03em;
+}
+.cabinet-preview .preview-hint {
+  color: var(--text-dim);
+  font-size: clamp(7px, 1.9vw, 11px);
+  line-height: 1.25;
+}
+.cabinet-preview.preview-unavailable {
+  background: radial-gradient(120% 90% at 50% 20%, #3a241255, #05060a 75%);
+}
+.cabinet-preview.preview-unavailable .preview-title { color: #ffb266; }
+
+.cabinet-footer {
+  color: var(--text-dim);
+  font-size: 0.78rem;
+  text-align: center;
+  margin-top: 0.6rem;
+  max-width: 360px;
+}
+
+.hero-controls { align-self: center; }
+.hero-controls .field { margin-bottom: 0.9rem; }
+.hero-controls label { display: block; font-size: 0.78rem; color: var(--text-dim); margin-bottom: 0.3rem; }
+.hero-hint { font-size: 0.78rem; color: var(--text-dim); margin: 0.6rem 0 0; }
+
+/* ---------- Dedicated play view (/play) ---------- */
+
+.play-topbar { gap: 1rem; }
+.play-topbar .brand { align-items: center; }
+.play-topbar #play-title { font-size: 1.05rem; }
+
+.back-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 0.35rem 0.7rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.82rem;
+}
+.back-btn:hover { border-color: var(--accent3); color: var(--accent3); }
+
+.play-meta { display: flex; align-items: center; gap: 1rem; }
+.play-agent { color: var(--text-dim); font-size: 0.82rem; font-family: var(--mono); }
+.play-agent b { color: var(--accent2); }
+
+.play-main { max-width: 1100px; margin: 0 auto; padding: 1.25rem 1.5rem 3rem; }
+
+.play-stream {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 1.5rem;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .play-stream { grid-template-columns: 1fr; }
+}
+
+.play-screen-wrap {
+  background: #05060a;
+  border: 8px solid #1c1f33;
+  border-radius: 20px;
+  padding: 1rem;
+  box-shadow: inset 0 0 80px #000, 0 0 60px #ff5fa233;
+}
+.play-crt {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 160 / 210;
+  max-height: 70vh;
+  margin: 0 auto;
+  background: #000;
+  border-radius: 6px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.play-crt canvas { width: 100%; height: 100%; image-rendering: pixelated; }
+.play-crt::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(180deg, rgba(0,0,0,0.18) 0px, rgba(0,0,0,0.18) 1px, transparent 2px, transparent 3px);
+  pointer-events: none;
+}
+.play-crt .placeholder { color: var(--text-dim); font-size: 0.9rem; text-align: center; padding: 1rem; }
+
+.play-sidebar { display: flex; flex-direction: column; gap: 0.9rem; }
+.play-hud { margin-top: 0; }
+.play-buttons { display: flex; gap: 0.6rem; }
+.play-buttons button { width: 100%; margin-top: 0; }
+.trace-card { margin-bottom: 0; }
+
+.play-unavailable { max-width: 640px; margin: 2rem auto; }
+.callout-card { border-left: 3px solid var(--accent3); }
+.callout-card h2 { color: #ffb266; }
+.callout-card p { margin-bottom: 1.1rem; }
