@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Wrapper local de MAME (SDLMAME 0.288 + SDL3 en vendor/)
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+MAME_BIN="$ROOT/vendor/mame/mame0288-arm64/mame"
+FRAMEWORKS="$ROOT/vendor/Frameworks"
+
+if [[ ! -x "$MAME_BIN" ]]; then
+  echo "MAME no instalado. Ejecuta: ./scripts/install_mame.sh" >&2
+  exit 1
+fi
+
+export DYLD_FRAMEWORK_PATH="$FRAMEWORKS${DYLD_FRAMEWORK_PATH:+:$DYLD_FRAMEWORK_PATH}"
+exec "$MAME_BIN" "$@"

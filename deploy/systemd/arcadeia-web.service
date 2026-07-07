@@ -1,0 +1,16 @@
+[Unit]
+Description=Arcade AI web — machinelearning-arcade.pablodiaz.eu
+After=network.target
+
+[Service]
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/var/www/arcadeia
+Environment=PATH=/var/www/arcadeia/.venv/bin
+Environment=ARCADEIA_ADMIN_TOKEN=__SET_ME__
+ExecStart=/var/www/arcadeia/.venv/bin/uvicorn web.app:app --app-dir /var/www/arcadeia --host 127.0.0.1 --port 8014
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

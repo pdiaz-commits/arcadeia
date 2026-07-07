@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Arcade AI</title>
+<link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand">
+      <h1>🕹️ Arcade AI</h1>
+      <span class="subtitle" data-i18n="subtitle">Thesis project</span>
+    </div>
+    <div class="lang-switch" id="lang-switch"></div>
+  </div>
+
+  <nav class="tabs" id="tabs">
+    <button data-tab="play" class="active">Play</button>
+    <button data-tab="ai">AI plays</button>
+    <button data-tab="teach">Teach</button>
+    <button data-tab="admin">Admin</button>
+  </nav>
+
+  <main>
+    <!-- PLAY TAB -->
+    <section class="tabpanel active" id="tab-play">
+      <div class="card">
+        <h2 data-i18n="gamesTitle">Game catalog</h2>
+        <p id="play-intro" data-i18n="playIntro"></p>
+        <table>
+          <thead>
+            <tr id="games-header"></tr>
+          </thead>
+          <tbody id="games-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- AI PLAYS TAB -->
+    <section class="tabpanel" id="tab-ai">
+      <div class="cabinet">
+        <div class="card" style="margin-bottom:0;">
+          <div class="screen-wrap">
+            <div class="crt" id="crt">
+              <div class="placeholder" id="crt-placeholder" data-i18n="aiConnecting">Press "AI plays now"</div>
+              <canvas id="game-canvas" width="160" height="210" style="display:none;"></canvas>
+            </div>
+          </div>
+          <div class="hud">
+            <span><span data-i18n="aiEpisode">Episode</span>: <b id="hud-episode">–</b></span>
+            <span><span data-i18n="aiStep">Step</span>: <b id="hud-step">–</b></span>
+            <span><span data-i18n="aiReward">Reward</span>: <b id="hud-reward">–</b></span>
+          </div>
+          <div id="ai-live-tag" class="live-tag" style="visibility:hidden; margin-top:0.4rem;">
+            <span class="live-dot"></span> <span data-i18n="aiLive">LIVE</span>
+          </div>
+          <div id="ai-error" class="notice-error"></div>
+        </div>
+
+        <div class="card controls-panel" style="margin-bottom:0;">
+          <div class="field">
+            <label data-i18n="aiSelectGame">Game</label>
+            <select id="ai-game-select"></select>
+          </div>
+          <div class="field">
+            <label data-i18n="aiSelectAgent">Agent</label>
+            <select id="ai-agent-select">
+              <option value="heuristic">heuristic</option>
+              <option value="random">random</option>
+            </select>
+          </div>
+          <button class="primary" id="ai-start-btn" data-i18n="aiStart">AI plays now</button>
+          <button class="secondary" id="ai-stop-btn" data-i18n="aiStop" style="display:none;">Stop</button>
+
+          <div id="mame-notice" class="callout" style="display:none; margin-top:1rem;">
+            <strong id="mame-notice-title" data-i18n="mameNoticeTitle"></strong>
+            <p id="mame-notice-body" style="margin-bottom:0;"></p>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 data-i18n="howTitle">How does the AI decide?</h2>
+        <p data-i18n="howIntro"></p>
+        <ol id="how-steps"></ol>
+      </div>
+
+      <div class="card">
+        <h2 data-i18n="traceTitle">Decision trace (live)</h2>
+        <table>
+          <thead><tr id="trace-header"></tr></thead>
+          <tbody id="trace-body"></tbody>
+        </table>
+        <p id="trace-empty" data-i18n="traceEmpty" style="margin-top:0.5rem;"></p>
+      </div>
+    </section>
+
+    <!-- TEACH TAB -->
+    <section class="tabpanel" id="tab-teach">
+      <div class="card">
+        <h2 data-i18n="teachTitle">Teach</h2>
+        <p data-i18n="teachIntro"></p>
+        <table>
+          <thead><tr id="teach-header"></tr></thead>
+          <tbody id="teach-body"></tbody>
+        </table>
+        <p id="teach-empty" data-i18n="teachNoSessions" style="display:none;"></p>
+      </div>
+    </section>
+
+    <!-- ADMIN TAB -->
+    <section class="tabpanel" id="tab-admin">
+      <div class="card">
+        <h2 data-i18n="adminTitle">Admin</h2>
+        <div class="field">
+          <label data-i18n="adminTokenLabel">Admin token</label>
+          <input type="password" id="admin-token" data-i18n-placeholder="adminTokenPlaceholder" />
+        </div>
+        <p id="admin-disabled-notice" class="notice-error" style="display:none;" data-i18n="adminDisabledNotice"></p>
+
+        <div class="grid-2">
+          <div>
+            <h3 data-i18n="adminUploadRomTitle" style="font-size:0.95rem;"></h3>
+            <p style="color:var(--text-dim); font-size:0.82rem;" data-i18n="adminUploadRomHint"></p>
+            <input type="file" id="rom-file" accept=".zip" />
+            <button class="primary" id="rom-upload-btn" style="margin-top:0.6rem;" data-i18n="adminUploadButton"></button>
+            <div id="rom-upload-status"></div>
+          </div>
+          <div>
+            <h3 data-i18n="adminUploadLuaTitle" style="font-size:0.95rem;"></h3>
+            <p style="color:var(--text-dim); font-size:0.82rem;" data-i18n="adminUploadLuaHint"></p>
+            <input type="file" id="lua-file" accept=".lua" />
+            <button class="primary" id="lua-upload-btn" style="margin-top:0.6rem;" data-i18n="adminUploadButton"></button>
+            <div id="lua-upload-status"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 data-i18n="adminFilesTitle">Current files</h2>
+        <div class="grid-2">
+          <div>
+            <strong data-i18n="adminRoms">ROMs</strong>
+            <div id="admin-roms-list"></div>
+          </div>
+          <div>
+            <strong data-i18n="adminLua">Lua scripts</strong>
+            <div id="admin-lua-list"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <span data-i18n="footer"></span> ·
+    <a href="https://github.com/" id="repo-link" style="color:var(--accent3);">GitHub</a> ·
+    <span id="version-tag"></span>
+  </footer>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

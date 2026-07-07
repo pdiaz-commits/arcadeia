@@ -1,0 +1,13 @@
+gymnasium[atari]>=0.29.0
+ale-py>=0.9.0
+numpy>=1.24.0
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+pydantic>=2.0.0
+pyyaml>=6.0.0
+pillow>=10.0.0
+python-multipart>=0.0.9
+
+# Opcional — entrenamiento RL (descomentar si tienes GPU/tiempo)
+# stable-baselines3[extra]>=2.3.0
+# torch>=2.0.0

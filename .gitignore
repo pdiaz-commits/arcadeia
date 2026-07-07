@@ -1,0 +1,23 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.env
+roms/
+*.pt
+checkpoints/
+logs/
+config/learned_tactics.yaml
+scripts/mame/learned_tactics.lua
+scripts/mame/.runtime_ai.lua
+.DS_Store
+
+# MAME vendor (binarios grandes — reinstalar con scripts/install_mame.sh)
+vendor/mame0288-arm64.zip
+vendor/SDL3-*.dmg
+vendor/mame/
+vendor/Frameworks/
+
+# Server-side runtime state (regenerated on the deployed box)
+*.log

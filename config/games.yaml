@@ -1,0 +1,68 @@
+# Juegos disponibles en la demo local.
+# ALE = Atari 2600 (funciona en macOS sin MAME).
+# MAME = requiere emulador + ROM legal (ver README).
+
+default_game: breakout
+
+ale_games:
+  breakout:
+    env_id: "ALE/Breakout-v5"
+    year: 1976
+    description: "Clásico de ladrillos — ideal para empezar con RL"
+  pong:
+    env_id: "ALE/Pong-v5"
+    year: 1972
+    description: "Pong — dos palas, acciones simples"
+  space_invaders:
+    env_id: "ALE/SpaceInvaders-v5"
+    year: 1978
+    description: "Space Invaders — shoot'em up icónico"
+  pacman:
+    env_id: "ALE/MsPacman-v5"
+    year: 1982
+    description: "Ms. Pac-Man — laberinto y fantasmas"
+  tetris:
+    env_id: "ALE/Tetris-v5"
+    year: 1988
+    description: "Tetris Atari 2600 — piezas y líneas"
+
+mame_games:
+  tempest:
+    game_id: tempest
+    year: 1981
+    description: "Tempest — ver ArcadeAI / MAME + Lua"
+    rom: tempest.zip
+  pacman:
+    game_id: pacman
+    year: 1980
+    description: "Pac-Man arcade cabinet"
+    rom: pacman.zip
+  dkong:
+    game_id: dkong
+    year: 1981
+    description: "Donkey Kong"
+    rom: dkong.zip
+  atetris:
+    game_id: atetris
+    year: 1988
+    description: "Tetris arcade cabinet (Atari)"
+    rom: atetris.zip
+  tecmo_world_cup:
+    game_id: twcup90
+    year: 1990
+    description: "Tecmo World Cup '90 — fútbol arcade"
+    rom: twcup90.zip
+  tehkan_world_cup:
+    game_id: tehkanwc
+    year: 1986
+    description: "Tehkan World Cup — fútbol arcade clásico"
+    rom: tehkanwc.zip
+    ai_script: tehkanwc_ai.lua
+    teach_script: record_play.lua
+  wonder_boy:
+    game_id: wboy
+    year: 1986
+    description: "Wonder Boy — plataformas arcade Sega"
+    rom: wboy.zip
+    ai_script: wboy_ai.lua
+    teach_script: wboy_record_play.lua
