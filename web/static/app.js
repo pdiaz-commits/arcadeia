@@ -36,6 +36,7 @@ function applyI18n() {
   }
 
   renderGamesTable();
+  if (state.games.length) populateHeroGameSelect();
   renderHowSteps();
   renderHowToSteps();
   updateHero();
@@ -129,15 +130,47 @@ function renderGamesTable() {
 
 function populateHeroGameSelect() {
   const sel = $("#hero-game-select");
+  const d = state.i18n;
+  const prev = sel.value;
   sel.innerHTML = "";
-  for (const g of state.games) {
+
+  // Split into games that actually play here (hosted ALE) vs. local-only MAME,
+  // and group them so it's obvious which ones the "AI plays now" button will
+  // launch — otherwise picking a MAME game silently leads to a disabled button.
+  const hosted = state.games.filter((g) => g.hosted);
+  const localOnly = state.games.filter((g) => !g.hosted);
+
+  const addOption = (parent, g, suffix) => {
     const opt = document.createElement("option");
     opt.value = g.key;
-    opt.textContent = `${g.title} (${g.engine})`;
+    opt.textContent = `${g.title} (${g.engine})${suffix}`;
     opt.dataset.hosted = g.hosted ? "true" : "false";
     opt.dataset.title = g.title;
-    sel.appendChild(opt);
+    parent.appendChild(opt);
+  };
+
+  if (hosted.length) {
+    const grp = document.createElement("optgroup");
+    grp.label = `▶ ${d.statusHostedAle || "playable here"}`;
+    for (const g of hosted) addOption(grp, g, "");
+    sel.appendChild(grp);
   }
+  if (localOnly.length) {
+    const suffix = ` — ${d.statusNotHostedMame || "requires local MAME"}`;
+    const grp = document.createElement("optgroup");
+    grp.label = d.statusNotHostedMame || "requires local MAME";
+    for (const g of localOnly) addOption(grp, g, suffix);
+    sel.appendChild(grp);
+  }
+
+  // Keep the current selection across re-renders (e.g. language switch);
+  // otherwise default to a game that can actually be launched here.
+  if (prev && state.games.some((g) => g.key === prev)) {
+    sel.value = prev;
+  } else if (hosted.length) {
+    sel.value = hosted[0].key;
+  }
+
   updateHero();
 }
 
