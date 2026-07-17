@@ -1,0 +1,8 @@
+# Auto-generado desde demo atract Atari Tetris
+rules:
+  - name: demo_place_5
+    depth_sum: 14
+    depth_sum_tol: 48
+    piece_left_tol: 8
+    target_left: 14
+    source: auto: learn_from_attract_atetris

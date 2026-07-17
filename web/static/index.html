@@ -156,7 +156,20 @@
     <span data-i18n="footer"></span> ·
     <a href="https://github.com/pdiaz-commits/arcadeia" id="repo-link" style="color:var(--accent3);">GitHub</a> ·
     <span id="version-tag"></span>
+    <br />
+    <small id="legal-footer" data-i18n="legalFooter" style="color:var(--text-dim);"></small>
   </footer>
+
+  <div id="legal-modal" class="legal-modal" style="display:none;">
+    <div class="legal-modal-card card">
+      <h2 id="legal-modal-title" data-i18n="legalDisclaimerTitle">Legal notice</h2>
+      <p id="legal-modal-body" data-i18n="legalDisclaimerBody"></p>
+      <div class="legal-modal-actions">
+        <button class="secondary" id="legal-decline-btn" data-i18n="legalDecline">Cancel</button>
+        <button class="primary" id="legal-accept-btn" data-i18n="legalAccept">Accept</button>
+      </div>
+    </div>
+  </div>
 
   <script src="/static/app.js"></script>
 </body>

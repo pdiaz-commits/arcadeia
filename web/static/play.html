@@ -23,10 +23,15 @@
   <main class="play-main">
     <!-- Live stream (hosted ALE games) -->
     <section id="play-stream" class="play-stream" style="display:none;">
-      <div class="play-screen-wrap">
-        <div class="crt play-crt">
+      <div class="play-screen-wrap" id="play-screen-wrap">
+        <div class="play-screen-toolbar">
+          <button type="button" class="secondary screen-btn" id="fullscreen-btn" data-i18n="playFullscreen">⛶ Fullscreen</button>
+          <button type="button" class="secondary screen-btn" id="mute-btn" data-i18n="playMute" style="display:none;">🔊 Sound</button>
+        </div>
+        <div class="crt play-crt" id="play-crt">
           <div class="placeholder" id="play-placeholder" data-i18n="playOpening">Connecting…</div>
           <canvas id="play-canvas" width="160" height="210" style="display:none;"></canvas>
+          <img id="play-stream-img" alt="" class="play-stream-img" style="display:none;" />
         </div>
       </div>
 
@@ -55,7 +60,39 @@
       </div>
     </section>
 
-    <!-- Not available (MAME games on this hosted server) -->
+    <!-- MAME educational demo (ROM verified on server) -->
+    <section id="play-mame" class="play-stream" style="display:none;">
+      <div class="play-screen-wrap" id="mame-screen-wrap">
+        <div class="play-screen-toolbar">
+          <button type="button" class="secondary screen-btn" id="mame-snap-pause-btn" data-i18n="mameSnapPause">⏸ Pause</button>
+          <button type="button" class="secondary screen-btn" id="mame-fullscreen-btn" data-i18n="playFullscreen">⛶ Fullscreen</button>
+        </div>
+        <div class="crt play-crt" id="mame-crt">
+          <div class="placeholder" id="mame-placeholder" data-i18n="aiConnecting">Loading…</div>
+          <div class="mame-snap-carousel" id="mame-snap-carousel" aria-hidden="true">
+            <img id="mame-snap-a" class="mame-snap-layer" alt="" />
+            <img id="mame-snap-b" class="mame-snap-layer" alt="" />
+          </div>
+        </div>
+      </div>
+
+      <div class="play-sidebar">
+        <div class="hud play-hud">
+          <span id="mame-demo-tag" class="live-tag educational-tag" style="visibility:visible;">
+            <span class="live-dot edu-dot"></span> <span data-i18n="mameDemoLiveTag">EDUCATIONAL DEMO</span>
+          </span>
+          <span><span data-i18n="mameSnapFrame">Frame</span>: <b id="mame-snap-frame">–</b></span>
+        </div>
+        <p id="mame-demo-body" class="callout" data-i18n="mameDemoBody"></p>
+
+        <div class="card trace-card">
+          <h2 data-i18n="mameLuaTitle">Lua agent source</h2>
+          <pre id="mame-lua-source" class="lua-source"></pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- Not available (no ROM on server) -->
     <section id="play-unavailable" class="play-unavailable" style="display:none;">
       <div class="card callout-card">
         <h2 id="unavailable-title" data-i18n="mameNoticeTitle"></h2>
@@ -65,6 +102,17 @@
     </section>
   </main>
 
-  <script src="/static/play.js"></script>
+  <div id="legal-modal" class="legal-modal" style="display:none;">
+    <div class="legal-modal-card card">
+      <h2 id="legal-modal-title" data-i18n="legalDisclaimerTitle">Legal notice</h2>
+      <p id="legal-modal-body" data-i18n="legalDisclaimerBody"></p>
+      <div class="legal-modal-actions">
+        <button class="secondary" id="legal-decline-btn" data-i18n="legalDecline">Cancel</button>
+        <button class="primary" id="legal-accept-btn" data-i18n="legalAccept">Accept</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/play.js?v=20260709b"></script>
 </body>
 </html>

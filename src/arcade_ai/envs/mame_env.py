@@ -25,10 +25,11 @@ class MameNotAvailableError(RuntimeError):
 
 
 def resolve_mame_binary() -> str | None:
-    if _LOCAL_MAME.is_file():
-        return str(_LOCAL_MAME)
     if _VENDOR_MAME.is_file():
         return str(_VENDOR_MAME)
+    vendor_via_wrapper = _PROJECT_ROOT / "vendor" / "mame" / "mame0288-arm64" / "mame"
+    if _LOCAL_MAME.is_file() and vendor_via_wrapper.is_file():
+        return str(_LOCAL_MAME)
     return shutil.which("mame")
 
 

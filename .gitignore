@@ -21,3 +21,18 @@ vendor/Frameworks/
 
 # Server-side runtime state (regenerated on the deployed box)
 *.log
+
+# Personal / runtime state (not project code)
+.freebuff/
+nvram/
+hiscore/
+snap/
+autofire/
+
+# Separate projects in this repo (multi-project monorepo — keep untracked)
+marketplace/
+slm_saas/
+iaone-unix/
+leadcollector/
+dossier/
+instantweb-todoentuciudad/

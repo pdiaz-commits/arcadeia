@@ -35,8 +35,12 @@ mame_games:
   pacman:
     game_id: pacman
     year: 1980
-    description: "Pac-Man arcade cabinet"
+    description: "Pac-Man arcade — el original (Namco)"
     rom: pacman.zip
+    mame_width: 224
+    mame_height: 288
+    ai_script: pacman_ai.lua
+    teach_script: pacman_record_play.lua
   dkong:
     game_id: dkong
     year: 1981
@@ -47,11 +51,14 @@ mame_games:
     year: 1988
     description: "Tetris arcade cabinet (Atari)"
     rom: atetris.zip
+    ai_script: atetris_ai.lua
+    teach_script: atetris_record_play.lua
   tecmo_world_cup:
     game_id: twcup90
     year: 1990
     description: "Tecmo World Cup '90 — fútbol arcade"
     rom: twcup90.zip
+    ai_script: twcup90_ai.lua
   tehkan_world_cup:
     game_id: tehkanwc
     year: 1986
@@ -62,7 +69,109 @@ mame_games:
   wonder_boy:
     game_id: wboy
     year: 1986
-    description: "Wonder Boy — plataformas arcade Sega"
+    description: "Wonder Boy — plataformas arcade Sega (disparo en ráfaga estilo plugin autofire)"
     rom: wboy.zip
+    mame_width: 256
+    mame_height: 224
     ai_script: wboy_ai.lua
     teach_script: wboy_record_play.lua
+  ghosts_n_goblins:
+    game_id: gngb
+    year: 1985
+    description: "Ghosts'n Goblins — plataformas y disparos Capcom"
+    rom: gngb.zip
+    ai_script: gngb_ai.lua
+    teach_script: gngb_record_play.lua
+  outrun:
+    game_id: outrun
+    year: 1986
+    description: "Out Run — carreras arcade Sega (heurístico: volante centrado + esquiva)"
+    rom: outrun.zip
+    ai_script: outrun_ai.lua
+    teach_script: outrun_record_play.lua
+  superman:
+    game_id: superman
+    year: 1988
+    description: "Superman (Taito) — falta ROM C-Chip (cchip_upd78c11.bin); demo educativa con agente Lua"
+    rom: superman.zip
+    ai_script: superman_ai.lua
+    teach_script: superman_record_play.lua
+  spang:
+    game_id: spang
+    year: 1990
+    description: "Super Pang — romper bolas (Mitchell)"
+    rom: spang.zip
+    ai_script: spang_ai.lua
+  snow_bros:
+    game_id: snowbros
+    year: 1990
+    description: "Snow Bros — Nick & Tom (Toaplan)"
+    rom: snowbros.zip
+    mame_width: 256
+    mame_height: 224
+    ai_script: snowbros_ai.lua
+
+  # === NUEVOS JUEGOS — Pipeline de entrenamiento ===
+  tapper:
+    game_id: tapper
+    year: 1983
+    description: "Tapper — bartending arcade (Bally/Midway)"
+    rom: tapper.zip
+    ai_script: tapper_ai.lua
+    teach_script: tapper_record_play.lua
+  frogger:
+    game_id: frogger
+    year: 1981
+    description: "Frogger — cruzar río y carretera (Konami)"
+    rom: frogger.zip
+    ai_script: frogger_ai.lua
+    teach_script: frogger_record_play.lua
+  galaga:
+    game_id: galaga
+    year: 1981
+    description: "Galaga — space shooter galáctico (Namco)"
+    rom: galaga.zip
+    ai_script: galaga_ai.lua
+    teach_script: galaga_record_play.lua
+  windjammers:
+    game_id: windjamm
+    year: 1994
+    description: "Windjammers — frisbee arcade (Data East)"
+    rom: windjamm.zip
+    ai_script: windjammers_ai.lua
+    teach_script: windjammers_record_play.lua
+  dig_dug:
+    game_id: digdug
+    year: 1982
+    description: "Dig Dug — cavar y reventar monstruos (Namco)"
+    rom: digdug.zip
+    ai_script: digdug_ai.lua
+    teach_script: digdug_record_play.lua
+  moon_patrol:
+    game_id: moonpatl
+    year: 1982
+    description: "Moon Patrol — lunar rover con saltos y disparos (Irem)"
+    rom: moonpatl.zip
+    ai_script: moonpatl_ai.lua
+    teach_script: moonpatl_record_play.lua
+  blood_bros:
+    game_id: bloodbro
+    year: 1990
+    description: "Blood Bros. — western shooter arcade (TAD)"
+    rom: bloodbro.zip
+    ai_script: bloodbro_ai.lua
+    teach_script: bloodbro_record_play.lua
+  smash_tv:
+    game_id: smash
+    year: 1990
+    description: "Smash TV — arena shooter con doble joystick (Williams)"
+    rom: smash.zip
+    ai_script: smash_ai.lua
+    teach_script: smash_record_play.lua
+  sunset_riders:
+    game_id: sunsetr
+    year: 1991
+    description: "Sunset Riders — run & gun western (Konami)"
+    rom: sunsetr.zip
+    ai_script: sunsetr_ai.lua
+    teach_script: sunsetr_record_play.lua

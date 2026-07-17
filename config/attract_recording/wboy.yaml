@@ -1,0 +1,25 @@
+# Generic attract-mode recorder config for Wonder Boy.
+# Used by scripts/mame/teach_attract.sh wonder_boy.
+#
+# Mode "sprite" dumps every non-zero sprite in spriteram. For Wonder Boy:
+#   base = 0xd000, 256 sprites × 8 bytes each.
+#   Per sprite: [0]=code, [1]=raw_y, [2]=raw_x.
+#   sx = raw_x - 128, sy = 256 - raw_y (Y-flipped on this hardware).
+# Verified against scripts/mame/wboy_ai.lua (v28) SPRITE_BASE / sprite loop.
+
+mode: sprite
+game_id: wboy
+record_seconds: 60
+sample_every: 3
+boot_skip_frames: 0
+
+sprite:
+  base: 0xd000
+  stride: 8
+  sprite_count: 256
+  code_offset: 0
+  x_raw_offset: 2
+  x_offset: -128          # raw_x - 128 → signed screen X
+  y_raw_offset: 1
+  y_transform: flip       # 256 - raw_y → sy (Wonder Boy uses flip-Y)
+  ignore_codes: [0, 255]  # skip empty + stale 0xff slots

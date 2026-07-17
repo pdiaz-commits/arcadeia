@@ -71,7 +71,21 @@ async def run_live_session(
 
         agent = make_agent(agent_level, game)
         stats = SessionStats()
-        yield {"type": "connected", "game": game, "agent": agent.name, "max_episodes": MAX_EPISODES}
+        width, height = 160, 210
+        try:
+            probe = await asyncio.to_thread(env.render)
+            if probe is not None and len(probe.shape) >= 2:
+                height, width = int(probe.shape[0]), int(probe.shape[1])
+        except Exception:
+            pass
+        yield {
+            "type": "connected",
+            "game": game,
+            "agent": agent.name,
+            "max_episodes": MAX_EPISODES,
+            "width": width,
+            "height": height,
+        }
 
         try:
             for episode in range(1, MAX_EPISODES + 1):

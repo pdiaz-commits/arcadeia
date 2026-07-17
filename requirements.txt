@@ -8,6 +8,8 @@ pyyaml>=6.0.0
 pillow>=10.0.0
 python-multipart>=0.0.9
 
-# Opcional — entrenamiento RL (descomentar si tienes GPU/tiempo)
-# stable-baselines3[extra]>=2.3.0
-# torch>=2.0.0
+# Entrenamiento RL — Stable Baselines 3 + PyTorch
+# En macOS Apple Silicon: `pip install "stable-baselines3[extra]"` con el
+# Python arm64 ya trae wheels de torch optimizadas para M-series.
+stable-baselines3[extra]>=2.3.0
+torch>=2.0.0

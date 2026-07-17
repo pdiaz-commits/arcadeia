@@ -1,0 +1,39 @@
+# Generic attract-mode recorder config for Out Run.
+# Used by scripts/mame/teach_attract.sh outrun.
+#
+# Mode "sprite" dumps every non-zero sprite in spriteram. For Out Run
+# (Sega Out Run hardware): sprite entries are 16 bytes (8 × u16 LE):
+#   +0: bit15=end-of-list, bits 14/12=hidden, bits 11-9=bank,
+#       bits 8-0 = top-256 (= screen_y_top - 0x100).
+#   +2: palette / attributes
+#   +4: bits 8-0 = screen X position.
+#   +6..14: zoom/control words (ignored for attract recording).
+# Verified against scripts/mame/outrun_ai.lua (v1) read_sprites().
+#
+# IMPORTANT: OutRun sprite table is VARIABLE-LENGTH. We use end_marker to
+# cut the loop at the bit-15 terminator (the high byte of the LE-u16 at
+# offset 0). Without end_marker, the recorder would dump hundreds of
+# phantom "sprites" from RAM after the list ends.
+
+mode: sprite
+game_id: outrun
+record_seconds: 60
+sample_every: 3
+boot_skip_frames: 0
+
+sprite:
+  base: 0x100000
+  stride: 16
+  sprite_count: 256        # upper bound; end_marker truncates earlier
+  code_offset: 0           # low byte of w0 (top-y) — used as opaque id
+  x_raw_offset: 4
+  x_offset: 0
+  y_raw_offset: 0
+  y_transform: direct
+  ignore_codes: [0]
+
+  # End-of-list marker: bit 15 of word +0, encoded as high byte (offset 1)
+  # of the LE u16. Recorder breaks out of the loop when (byte & mask) != 0.
+  end_marker:
+    offset: 1              # high byte of the LE u16 at sprite +0
+    mask: 0x80             # bit 7 of high byte == bit 15 of u16

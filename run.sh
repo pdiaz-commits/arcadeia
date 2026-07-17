@@ -9,9 +9,12 @@ AGENT="${2:-random}"
 RENDER=""
 if [[ "${3:-}" == "--render" ]]; then
   RENDER="--render"
+elif [[ "${3:-}" != "--headless" ]] && [[ "$(uname -s)" == "Darwin" ]]; then
+  # En Mac, ventana por defecto (sin ella parece que la IA no juega).
+  RENDER="--render"
 fi
 
-MAME_GAMES="tehkan_world_cup wonder_boy tecmo_world_cup atetris tehkanwc wboy twcup90"
+MAME_GAMES="tehkan_world_cup wonder_boy tecmo_world_cup atetris tehkanwc wboy twcup90 ghosts_n_goblins gngb outrun superman tapper frogger galaga windjammers pacman dig_dug moon_patrol blood_bros smash_tv sunset_riders"
 
 for g in $MAME_GAMES; do
   if [[ "$GAME" == "$g" ]]; then

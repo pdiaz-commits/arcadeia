@@ -1,0 +1,32 @@
+# Generic attract-mode recorder config for Atari Tetris.
+# Used by scripts/mame/teach_attract.sh atetris (see ../games.yaml).
+#
+# Mode "tile" reads a playfield grid of (row, col) tile codes from maincpu
+# RAM and records: heights per column, active-piece cells, bg detection.
+# Consumed by scripts/mame/teach_attract.lua.
+
+mode: tile
+game_id: atetris
+record_seconds: 60
+sample_every: 4
+boot_skip_frames: 0
+
+tile:
+  # Base addr in maincpu program space where the tile grid starts.
+  # atetris: tile (r,c) at 0x1000 + (r*64 + c)*2; byte 0 = low code,
+  # byte 1 bits 0-2 = high code.
+  base: 0x1000
+  col_count: 64              # row stride in cells
+  bytes_per_cell: 2
+
+  # Background detection — most-frequent code in this window becomes `bg`
+  # (the empty playfield color). Use a generous window covering the full
+  # visible playfield plus a frame of UI around it.
+  bg_scan:
+    rows: [2, 29]
+    cols: [0, 63]
+
+  # Actual playfield rows/cols (where pieces land).
+  playfield:
+    rows: [8, 24]
+    cols: [14, 27]

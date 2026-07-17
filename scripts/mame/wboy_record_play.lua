@@ -1,6 +1,6 @@
 -- Graba partida humana Wonder Boy → logs/demos/*.jsonl
 
-local ROOT = "/Users/pablo/dossier/arcade-ai"
+local ROOT = "/Users/pablo/Documents/arcade-ai"
 local LOG_DIR = ROOT .. "/logs/demos"
 local SESSION = os.date("session_%Y%m%d_%H%M%S")
 local LOG_PATH = LOG_DIR .. "/" .. SESSION .. ".jsonl"

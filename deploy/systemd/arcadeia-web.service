@@ -6,8 +6,16 @@ After=network.target
 User=ubuntu
 Group=ubuntu
 WorkingDirectory=/var/www/arcadeia
-Environment=PATH=/var/www/arcadeia/.venv/bin
+Environment=PATH=/var/www/arcadeia/.venv/bin:/usr/games:/usr/bin:/bin
+Environment=ARCADEIA_MAME_LIVE=1
+Environment=ARCADEIA_MAME_PREFER_SNAPS=1
+Environment=ARCADEIA_MAME_WIDTH=336
+Environment=ARCADEIA_MAME_HEIGHT=240
+Environment=ARCADEIA_MAME_AUDIO=0
+Environment=XDG_RUNTIME_DIR=/run/user/1000
 Environment=ARCADEIA_ADMIN_TOKEN=__SET_ME__
+ExecStartPre=-/usr/bin/pkill -9 -f /var/www/arcadeia/roms
+ExecStartPre=-/usr/bin/pkill -9 -f ffmpeg.*x11grab
 ExecStart=/var/www/arcadeia/.venv/bin/uvicorn web.app:app --app-dir /var/www/arcadeia --host 127.0.0.1 --port 8014
 Restart=always
 RestartSec=5

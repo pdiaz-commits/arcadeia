@@ -10,7 +10,8 @@ const state = {
   games: [],
 };
 
-if (!["en", "es"].includes(state.lang)) state.lang = "en";
+const SUPPORTED_LANGS = ["en", "es", "no", "fr", "de"];
+if (!SUPPORTED_LANGS.includes(state.lang)) state.lang = "en";
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => Array.from(document.querySelectorAll(sel));
@@ -56,6 +57,9 @@ function renderLangSwitch() {
   const langs = [
     { id: "en", flag: "🇬🇧" },
     { id: "es", flag: "🇪🇸" },
+    { id: "no", flag: "🇳🇴" },
+    { id: "fr", flag: "🇫🇷" },
+    { id: "de", flag: "🇩🇪" },
   ];
   el.innerHTML = "";
   for (const l of langs) {
@@ -97,25 +101,30 @@ function renderGamesTable() {
   $("#games-header").innerHTML = d.gamesHeaders.map((h) => `<th>${h}</th>`).join("");
   const rows = state.games
     .map((g) => {
-      // "ready" only means "live/playable here" for hosted (ALE) games — a
-      // MAME ROM being present just means it *could* run locally, so it must
-      // never be worded/colored the same as "ready (ALE, live)", or it
-      // contradicts the "requires local MAME" badge right next to it.
       let statusClass;
       let statusLabel;
-      if (g.status !== "ready") {
-        statusClass = "needs_rom";
-        statusLabel = d.statusRomMissing;
-      } else if (g.hosted) {
+      let hostedBadge;
+      if (g.play_mode === "ale_live") {
         statusClass = "ready";
         statusLabel = d.statusReady;
+        hostedBadge = `<span class="badge hosted">${d.statusHostedAle}</span>`;
+      } else if (g.play_mode === "mame_live") {
+        statusClass = "ready-live";
+        statusLabel = d.statusReadyLive || d.statusReadyEducational;
+        hostedBadge = `<span class="badge hosted-mame-live">${d.statusHostedMameLive || d.statusHostedMame}</span>`;
+      } else if (g.play_mode === "mame_educational") {
+        statusClass = "ready-educational";
+        statusLabel = d.statusReadyEducational || d.statusRomReadyLocal;
+        hostedBadge = `<span class="badge hosted-mame">${d.statusHostedMame}</span>`;
+      } else if (g.status === "needs_rom") {
+        statusClass = "needs_rom";
+        statusLabel = d.statusRomMissing;
+        hostedBadge = `<span class="badge ${statusClass}">${d.statusNotHostedMame}</span>`;
       } else {
-        statusClass = "ready-local";
-        statusLabel = d.statusRomReadyLocal;
+        statusClass = "needs_rom";
+        statusLabel = d.statusNeedsAgent || d.statusRomMissing;
+        hostedBadge = `<span class="badge ${statusClass}">${d.statusNotHostedMame}</span>`;
       }
-      const hostedBadge = g.hosted
-        ? `<span class="badge hosted">${d.statusHostedAle}</span>`
-        : `<span class="badge ${statusClass}">${d.statusNotHostedMame}</span>`;
       return `<tr>
         <td>${g.title}</td>
         <td><span class="engine-pill">${g.engine}</span></td>
@@ -128,47 +137,65 @@ function renderGamesTable() {
   $("#games-body").innerHTML = rows;
 }
 
+function gameByKey(key) {
+  return state.games.find((g) => g.key === key) || null;
+}
+
 function populateHeroGameSelect() {
   const sel = $("#hero-game-select");
   const d = state.i18n;
   const prev = sel.value;
   sel.innerHTML = "";
 
-  // Split into games that actually play here (hosted ALE) vs. local-only MAME,
-  // and group them so it's obvious which ones the "AI plays now" button will
-  // launch — otherwise picking a MAME game silently leads to a disabled button.
-  const hosted = state.games.filter((g) => g.hosted);
-  const localOnly = state.games.filter((g) => !g.hosted);
+  const aleHosted = state.games.filter((g) => g.play_mode === "ale_live");
+  const mameLive = state.games.filter((g) => g.play_mode === "mame_live");
+  const mameEducational = state.games.filter((g) => g.play_mode === "mame_educational");
+  const missing = state.games.filter((g) => !g.hosted);
 
   const addOption = (parent, g, suffix) => {
     const opt = document.createElement("option");
     opt.value = g.key;
     opt.textContent = `${g.title} (${g.engine})${suffix}`;
     opt.dataset.hosted = g.hosted ? "true" : "false";
+    opt.dataset.playMode = g.play_mode || "";
     opt.dataset.title = g.title;
     parent.appendChild(opt);
   };
 
-  if (hosted.length) {
+  if (aleHosted.length) {
     const grp = document.createElement("optgroup");
     grp.label = `▶ ${d.statusHostedAle || "playable here"}`;
-    for (const g of hosted) addOption(grp, g, "");
+    for (const g of aleHosted) addOption(grp, g, "");
     sel.appendChild(grp);
   }
-  if (localOnly.length) {
-    const suffix = ` — ${d.statusNotHostedMame || "requires local MAME"}`;
+  if (mameLive.length) {
     const grp = document.createElement("optgroup");
-    grp.label = d.statusNotHostedMame || "requires local MAME";
-    for (const g of localOnly) addOption(grp, g, suffix);
+    grp.label = `▶ ${d.statusHostedMameLive || "MAME cabinet (live)"}`;
+    for (const g of mameLive) addOption(grp, g, "");
+    sel.appendChild(grp);
+  }
+  if (mameEducational.length) {
+    const grp = document.createElement("optgroup");
+    grp.label = `▶ ${d.statusHostedMame || "MAME cabinet (educational)"}`;
+    for (const g of mameEducational) addOption(grp, g, "");
+    sel.appendChild(grp);
+  }
+  if (missing.length) {
+    const suffix = ` — ${d.statusNotHostedMame || "ROM missing"}`;
+    const grp = document.createElement("optgroup");
+    grp.label = d.statusNotHostedMame || "ROM missing";
+    for (const g of missing) addOption(grp, g, suffix);
     sel.appendChild(grp);
   }
 
-  // Keep the current selection across re-renders (e.g. language switch);
-  // otherwise default to a game that can actually be launched here.
   if (prev && state.games.some((g) => g.key === prev)) {
     sel.value = prev;
-  } else if (hosted.length) {
-    sel.value = hosted[0].key;
+  } else if (aleHosted.length) {
+    sel.value = aleHosted[0].key;
+  } else if (mameLive.length) {
+    sel.value = mameLive[0].key;
+  } else if (mameEducational.length) {
+    sel.value = mameEducational[0].key;
   }
 
   updateHero();
@@ -180,8 +207,8 @@ function selectedGame() {
   return sel.options[sel.selectedIndex] || null;
 }
 
-// Reflects the currently selected game on the cabinet: marquee title, screen
-// preview state, MAME "not available" notice and whether launching is allowed.
+// Reflects the currently selected game on the cabinet: marquee, preview,
+// educational MAME notice or unavailable state, and whether launch is allowed.
 function updateHero() {
   const opt = selectedGame();
   const d = state.i18n;
@@ -199,42 +226,128 @@ function updateHero() {
     return;
   }
 
-  const hosted = opt.dataset.hosted !== "false";
+  const g = gameByKey(opt.value);
+  const playMode = (g && g.play_mode) || opt.dataset.playMode || "";
   const title = opt.dataset.title || opt.value;
   if (marquee) marquee.textContent = title;
 
-  if (hosted) {
-    if (preview) preview.classList.remove("preview-unavailable");
+  if (playMode === "ale_live") {
+    if (preview) preview.classList.remove("preview-unavailable", "preview-educational", "preview-live");
     if (previewTitle) previewTitle.textContent = d.cabinetPreviewReady || "";
     if (previewHint) previewHint.textContent = d.cabinetPreviewReadyHint || "";
     if (notice) notice.style.display = "none";
     if (launchBtn) launchBtn.disabled = false;
+  } else if (playMode === "mame_live") {
+    if (preview) {
+      preview.classList.remove("preview-unavailable", "preview-educational");
+      preview.classList.add("preview-live");
+    }
+    if (previewTitle) previewTitle.textContent = d.cabinetPreviewLive || "";
+    if (previewHint) previewHint.textContent = d.cabinetPreviewLiveHint || "";
+    if (notice) {
+      notice.style.display = "block";
+      $("#mame-notice-title").textContent = d.mameDemoTitle || "";
+      $("#mame-notice-body").textContent = d.legalFooter || d.mameDemoBody || "";
+    }
+    if (launchBtn) launchBtn.disabled = false;
+  } else if (playMode === "mame_educational") {
+    if (preview) {
+      preview.classList.remove("preview-unavailable");
+      preview.classList.add("preview-educational");
+    }
+    if (previewTitle) previewTitle.textContent = d.cabinetPreviewEducational || "";
+    if (previewHint) previewHint.textContent = d.cabinetPreviewEducationalHint || "";
+    if (notice) {
+      notice.style.display = "block";
+      $("#mame-notice-title").textContent = d.mameDemoTitle || "";
+      $("#mame-notice-body").textContent = d.mameDemoBody || "";
+    }
+    if (launchBtn) launchBtn.disabled = false;
   } else {
-    if (preview) preview.classList.add("preview-unavailable");
+    if (preview) {
+      preview.classList.remove("preview-educational");
+      preview.classList.add("preview-unavailable");
+    }
     if (previewTitle) previewTitle.textContent = d.cabinetPreviewUnavailable || "";
     if (previewHint) previewHint.textContent = d.cabinetPreviewUnavailableHint || "";
     if (notice) {
       notice.style.display = "block";
+      $("#mame-notice-title").textContent = d.mameNoticeTitle || "";
       $("#mame-notice-body").textContent = (d.mameNoticeBody || "").replace("{game}", opt.value);
     }
     if (launchBtn) launchBtn.disabled = true;
   }
 }
 
-// Opens the dedicated, larger play view in a new window. For non-hosted (MAME)
-// games we never launch a stream — the button is disabled and the cabinet
-// already shows the "not available on this server" state.
+// Opens the dedicated play view. Hosted ALE → live stream; hosted MAME →
+// educational demo (snaps + Lua). Missing ROM → button stays disabled.
 function launchPlay() {
   const opt = selectedGame();
-  if (!opt) return;
-  if (opt.dataset.hosted === "false") {
+  if (!opt || opt.dataset.hosted === "false") {
     updateHero();
     return;
   }
+  const g = gameByKey(opt.value);
+  if (g && (g.play_mode === "mame_educational" || g.play_mode === "mame_live") && !localStorage.getItem("arcadeia_legal_accepted")) {
+    showLegalModal(() => launchPlayAfterLegal(opt));
+    return;
+  }
+  launchPlayAfterLegal(opt);
+}
+
+function launchPlayAfterLegal(opt) {
   const game = opt.value;
   const agent = $("#hero-agent-select").value;
-  const params = new URLSearchParams({ game, agent, mode: "ai", lang: state.lang });
-  window.open(`/play?${params.toString()}`, "arcadeia_play", "noopener,width=900,height=820");
+  const mode = opt.dataset.playMode || "ai";
+  const params = new URLSearchParams({ game, agent, mode, lang: state.lang });
+  const w = window.open(`/play?${params.toString()}`, "arcadeia_play", "noopener,width=1000,height=900");
+  if (!w) {
+    const msg = (state.i18n && state.i18n.popupBlocked) || "Allow pop-ups for this site, then try again.";
+    alert(msg);
+  }
+}
+
+function showLegalModal(onAccept) {
+  const d = state.i18n;
+  let modal = $("#legal-modal");
+  if (!modal) {
+    modal = document.createElement("div");
+    modal.id = "legal-modal";
+    modal.className = "legal-modal";
+    modal.innerHTML = `
+      <div class="legal-modal-card card">
+        <h2 id="legal-modal-title"></h2>
+        <p id="legal-modal-body"></p>
+        <div class="legal-modal-actions">
+          <button class="secondary" id="legal-decline-btn"></button>
+          <button class="primary" id="legal-accept-btn"></button>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+  }
+  const titleEl =
+    $("#legal-modal-title") || modal.querySelector("[data-i18n='legalDisclaimerTitle']") || modal.querySelector("h2");
+  const bodyEl =
+    $("#legal-modal-body") || modal.querySelector("[data-i18n='legalDisclaimerBody']") || modal.querySelector("p");
+  if (titleEl) titleEl.textContent = d.legalDisclaimerTitle || "Legal notice";
+  if (bodyEl) bodyEl.textContent = d.legalDisclaimerBody || "";
+  const acceptBtn = $("#legal-accept-btn");
+  const declineBtn = $("#legal-decline-btn");
+  if (acceptBtn) acceptBtn.textContent = d.legalAccept || "Accept";
+  if (declineBtn) declineBtn.textContent = d.legalDecline || "Cancel";
+  modal.style.display = "flex";
+  if (acceptBtn) {
+    acceptBtn.onclick = () => {
+      localStorage.setItem("arcadeia_legal_accepted", "1");
+      modal.style.display = "none";
+      onAccept();
+    };
+  }
+  if (declineBtn) {
+    declineBtn.onclick = () => {
+      modal.style.display = "none";
+    };
+  }
 }
 
 function renderHowSteps() {

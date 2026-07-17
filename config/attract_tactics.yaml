@@ -1,0 +1,62 @@
+# Generado por learn_from_attract.py — demo arcade
+tactics:
+  - name: attract_run_1
+    description: "Demo arcade: carrera diagonal #1"
+    trigger:
+      ball_x: 105
+      ball_y: 108
+      ball_x_tol: 36
+      ball_y_tol: 36
+      player_y_max: 163
+    action:
+      dx: 0
+      dy: -58
+      kick: false
+  - name: attract_run_2
+    description: "Demo arcade: carrera diagonal #2"
+    trigger:
+      ball_x: 113
+      ball_y: 114
+      ball_x_tol: 36
+      ball_y_tol: 36
+      player_y_max: 169
+    action:
+      dx: -58
+      dy: -29
+      kick: false
+  - name: attract_run_3
+    description: "Demo arcade: carrera diagonal #3"
+    trigger:
+      ball_x: 113
+      ball_y: 117
+      ball_x_tol: 36
+      ball_y_tol: 36
+      player_y_max: 172
+    action:
+      dx: -58
+      dy: -58
+      kick: false
+  - name: attract_run_4
+    description: "Demo arcade: carrera diagonal #4"
+    trigger:
+      ball_x: 108
+      ball_y: 93
+      ball_x_tol: 36
+      ball_y_tol: 36
+      player_y_max: 148
+    action:
+      dx: 29
+      dy: -58
+      kick: false
+  - name: attract_run_5
+    description: "Demo arcade: carrera diagonal #5"
+    trigger:
+      ball_x: 102
+      ball_y: 129
+      ball_x_tol: 36
+      ball_y_tol: 36
+      player_y_max: 184
+    action:
+      dx: -19
+      dy: -58
+      kick: false

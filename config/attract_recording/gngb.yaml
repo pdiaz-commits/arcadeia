@@ -1,0 +1,27 @@
+# Generic attract-mode recorder config for Ghosts'n Goblins.
+# Used by scripts/mame/teach_attract.sh ghosts_n_goblins.
+#
+# Mode "sprite" dumps every non-zero sprite in spriteram. For gngb:
+#   base = 0x1e00, 128 sprites × 4 bytes each.
+#   Per sprite: [0]=code, [1]=attr (bit0 = sx sign), [2]=sy, [3]=raw_sx.
+#   sx = raw_sx - 0x100 * (attr & 0x01), sy = raw_y (direct, no flip).
+# Verified against scripts/mame/gngb_ai.lua (v2) SPRITE_BASE / sprite loop.
+
+mode: sprite
+game_id: gngb
+record_seconds: 60
+sample_every: 3
+boot_skip_frames: 0
+
+sprite:
+  base: 0x1e00
+  stride: 4
+  sprite_count: 128
+  code_offset: 0
+  x_raw_offset: 3
+  x_offset: 0             # sx = raw_sx (low byte) + sign bit via attr; the
+                          # generic recorder does not parse attr, so we
+                          # emit raw_sx and post-process in Python if needed.
+  y_raw_offset: 2
+  y_transform: direct     # sy = raw_y (no Y-flip on this hardware)
+  ignore_codes: [0, 255]
