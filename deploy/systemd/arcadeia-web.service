@@ -1,5 +1,5 @@
 [Unit]
-Description=Arcade AI web — arcaderooms.uk
+Description=Arcade AI web — arcade.arcaderooms.uk
 After=network.target
 
 [Service]
@@ -14,7 +14,7 @@ Environment=ARCADEIA_MAME_HEIGHT=240
 Environment=ARCADEIA_MAME_AUDIO=0
 Environment=XDG_RUNTIME_DIR=/run/user/1000
 Environment=ARCADEIA_ADMIN_TOKEN=__SET_ME__
-Environment=ARCADEIA_PUBLIC_HOST=arcaderooms.uk
+Environment=ARCADEIA_PUBLIC_HOST=arcade.arcaderooms.uk
 ExecStartPre=-/usr/bin/pkill -9 -f /var/www/arcadeia/roms
 ExecStartPre=-/usr/bin/pkill -9 -f ffmpeg.*x11grab
 ExecStart=/var/www/arcadeia/.venv/bin/uvicorn web.app:app --app-dir /var/www/arcadeia --host 127.0.0.1 --port 8014

@@ -1,9 +1,15 @@
-# Deploying Arcade Rooms (`arcaderooms.uk`)
+# Deploying Arcade AI (`arcade.arcaderooms.uk`)
 
 AWS Lightsail (Ubuntu 24.04) + nginx + systemd + certbot.
-Same box pattern as Columns AI / previous arcade subdomain.
 
-**Domain:** `arcaderooms.uk` (+ `www`) → A record to this server's public IP.
+**Domain layout on arcaderooms.uk:**
+
+| Host | App |
+|------|-----|
+| `arcaderooms.uk` (+ `www`) | Moodle Explorer — see `moodle_explorer/deploy/nginx/arcaderooms.uk` |
+| `arcade.arcaderooms.uk` | Arcade AI (this repo) |
+
+**DNS:** A record `arcade.arcaderooms.uk` → this server's public IP.
 
 ## 1. Code on the server
 
@@ -33,17 +39,17 @@ curl -s http://127.0.0.1:8014/healthz
 ## 3. nginx
 
 ```bash
-sudo cp deploy/nginx/arcaderooms.uk /etc/nginx/sites-available/
-sudo ln -sf /etc/nginx/sites-available/arcaderooms.uk /etc/nginx/sites-enabled/
+sudo cp deploy/nginx/arcade.arcaderooms.uk /etc/nginx/sites-available/
+sudo ln -sf /etc/nginx/sites-available/arcade.arcaderooms.uk /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-HTTP should answer at `http://arcaderooms.uk/` once DNS points here.
+HTTP should answer at `http://arcade.arcaderooms.uk/` once DNS points here.
 
 ## 4. TLS
 
 ```bash
-sudo certbot --nginx -d arcaderooms.uk -d www.arcaderooms.uk
+sudo certbot --nginx -d arcade.arcaderooms.uk
 ```
 
 ## Updating after a push
@@ -56,7 +62,7 @@ pip install -r requirements.txt
 sudo systemctl restart arcadeia-web.service
 ```
 
-## Legacy subdomain
+## Legacy
 
-`deploy/nginx/machinelearning-arcade.pablodiaz.eu` remains as reference for the
-old host name; prefer `arcaderooms.uk` going forward.
+- `deploy/nginx/arcaderooms.uk` — deprecated stub; root domain is Moodle Explorer.
+- `deploy/nginx/machinelearning-arcade.pablodiaz.eu` — old subdomain reference.

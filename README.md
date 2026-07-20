@@ -153,9 +153,9 @@ arcade-ai/
 
 ## Despliegue (referencia)
 
-Producción en **[arcaderooms.uk](https://arcaderooms.uk)** — `systemd`
-(`deploy/systemd/arcadeia-web.service`) + `nginx` + TLS Let's Encrypt/Certbot,
-mismo patrón que [Columns AI](https://machinelearning.pablodiaz.eu).
+Producción en **[arcade.arcaderooms.uk](https://arcade.arcaderooms.uk)** — `systemd`
+(`deploy/systemd/arcadeia-web.service`) + `nginx` + TLS Let's Encrypt/Certbot.
+La raíz **arcaderooms.uk** sirve Moodle Explorer (repo `moodle_explorer`).
 Pasos: `deploy/README.md`.
 
 ## Requisitos
