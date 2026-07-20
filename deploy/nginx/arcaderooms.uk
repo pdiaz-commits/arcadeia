@@ -1,5 +1,5 @@
 # DEPRECATED — Arcade AI no longer serves arcaderooms.uk root.
 #
 # Use:
-#   https://arcaderooms.uk          → Moodle Explorer (moodle_explorer/deploy/nginx/arcaderooms.uk)
+#   https://arcaderooms.uk          → MAME Explorer (mame_explorer/deploy/nginx/arcaderooms.uk)
 #   https://arcade.arcaderooms.uk   → Arcade AI (this repo: deploy/nginx/arcade.arcaderooms.uk)

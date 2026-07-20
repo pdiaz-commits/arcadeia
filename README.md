@@ -155,7 +155,7 @@ arcade-ai/
 
 Producción en **[arcade.arcaderooms.uk](https://arcade.arcaderooms.uk)** — `systemd`
 (`deploy/systemd/arcadeia-web.service`) + `nginx` + TLS Let's Encrypt/Certbot.
-La raíz **arcaderooms.uk** sirve Moodle Explorer (repo `moodle_explorer`).
+La raíz **arcaderooms.uk** sirve MAME Explorer (repo `mame_explorer`).
 Pasos: `deploy/README.md`.
 
 ## Requisitos

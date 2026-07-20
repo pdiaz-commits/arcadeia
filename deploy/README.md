@@ -6,7 +6,7 @@ AWS Lightsail (Ubuntu 24.04) + nginx + systemd + certbot.
 
 | Host | App |
 |------|-----|
-| `arcaderooms.uk` (+ `www`) | Moodle Explorer — see `moodle_explorer/deploy/nginx/arcaderooms.uk` |
+| `arcaderooms.uk` (+ `www`) | MAME Explorer — `mame_explorer/deploy/nginx/arcaderooms.uk` |
 | `arcade.arcaderooms.uk` | Arcade AI (this repo) |
 
 **DNS:** A record `arcade.arcaderooms.uk` → this server's public IP.
