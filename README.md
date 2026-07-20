@@ -4,6 +4,28 @@ Juegos arcade clásicos + agentes de IA con distintos niveles (random → heurí
 
 Inspirado en [Columns AI / machinelearning.pablodiaz.eu](https://machinelearning.pablodiaz.eu).
 
+## Linux Lab (Docker Ubuntu + MAME)
+
+Entorno compartido con IA One Unix:
+
+```bash
+cd ~/Documents/linux-lab
+./bin/lab doctor
+./bin/lab build
+./bin/lab up arcade    # http://127.0.0.1:8014
+```
+
+En Ubuntu x86_64 nativo (óptimo para MAME):
+
+```bash
+sudo bash ~/Documents/linux-lab/scripts/setup-ubuntu-host.sh
+cd ~/Documents/arcade-ai   # o /var/www/arcade-ai
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn web.app:app --app-dir . --port 8014
+./run.sh tehkan_world_cup heuristic
+```
+
 ## Arranque rápido (macOS / Linux)
 
 ```bash
@@ -131,10 +153,10 @@ arcade-ai/
 
 ## Despliegue (referencia)
 
-En producción corre como servicio `systemd` (`deploy/arcadeia-web.service`) tras
-un reverse proxy `nginx` con TLS de Let's Encrypt/Certbot — mismo patrón que
-[Columns AI](https://machinelearning.pablodiaz.eu). Ver `deploy/README.md` para
-los pasos exactos.
+Producción en **[arcaderooms.uk](https://arcaderooms.uk)** — `systemd`
+(`deploy/systemd/arcadeia-web.service`) + `nginx` + TLS Let's Encrypt/Certbot,
+mismo patrón que [Columns AI](https://machinelearning.pablodiaz.eu).
+Pasos: `deploy/README.md`.
 
 ## Requisitos
 

@@ -1,63 +1,52 @@
-# Deploying Arcade AI
+# Deploying Arcade Rooms (`arcaderooms.uk`)
 
-Reference deployment for the AWS Lightsail box already running
-`machinelearning.pablodiaz.eu` (Columns AI), Ubuntu 24.04 + nginx +
-systemd + certbot. This mirrors that exact pattern for the
-`machinelearning-arcade.pablodiaz.eu` subdomain.
+AWS Lightsail (Ubuntu 24.04) + nginx + systemd + certbot.
+Same box pattern as Columns AI / previous arcade subdomain.
 
-## 1. Get the code onto the server
+**Domain:** `arcaderooms.uk` (+ `www`) → A record to this server's public IP.
+
+## 1. Code on the server
 
 ```bash
-# on the server, as ubuntu:
+# as ubuntu on Lightsail:
 cd /var/www
-git clone https://github.com/<your-org>/arcadeia.git arcadeia
-cd arcadeia
+sudo mkdir -p /var/www && sudo chown ubuntu:ubuntu /var/www
+git clone https://github.com/pdiaz-commits/arcadeia.git arcadeia
+# or: cd /var/www/arcadeia && git pull
+cd /var/www/arcadeia
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## 2. Configure the admin token (optional but recommended)
-
-Edit `/etc/systemd/system/arcadeia-web.service` and set
-`ARCADEIA_ADMIN_TOKEN` to a real secret (uploads are disabled otherwise).
-
-## 3. systemd service
+## 2. systemd
 
 ```bash
 sudo cp deploy/systemd/arcadeia-web.service /etc/systemd/system/
+# set ARCADEIA_ADMIN_TOKEN to a real secret
+sudo nano /etc/systemd/system/arcadeia-web.service
 sudo systemctl daemon-reload
 sudo systemctl enable --now arcadeia-web.service
-sudo systemctl status arcadeia-web.service
 curl -s http://127.0.0.1:8014/healthz
 ```
 
-## 4. nginx reverse proxy
+## 3. nginx
 
 ```bash
-sudo cp deploy/nginx/machinelearning-arcade.pablodiaz.eu /etc/nginx/sites-available/
-sudo ln -s /etc/nginx/sites-available/machinelearning-arcade.pablodiaz.eu /etc/nginx/sites-enabled/
+sudo cp deploy/nginx/arcaderooms.uk /etc/nginx/sites-available/
+sudo ln -sf /etc/nginx/sites-available/arcaderooms.uk /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-At this point the app is live over plain HTTP at
-`http://machinelearning-arcade.pablodiaz.eu/` **once DNS for that subdomain
-points at this server's IP** (A record — ask whoever controls DNS for
-`pablodiaz.eu` to add it; this cannot be done from the server itself).
+HTTP should answer at `http://arcaderooms.uk/` once DNS points here.
 
-## 5. TLS (after DNS is live)
+## 4. TLS
 
 ```bash
-sudo certbot --nginx -d machinelearning-arcade.pablodiaz.eu
+sudo certbot --nginx -d arcaderooms.uk -d www.arcaderooms.uk
 ```
 
-This rewrites the nginx config in place (adds the 443 server block + the
-80→443 redirect), exactly like it already did for
-`/etc/nginx/sites-available/machinelearning.pablodiaz.eu`. Certbot will also
-set up the renewal timer automatically (shared with the other certs on this
-box).
-
-## Updating after a new push
+## Updating after a push
 
 ```bash
 cd /var/www/arcadeia
@@ -66,3 +55,8 @@ source .venv/bin/activate
 pip install -r requirements.txt
 sudo systemctl restart arcadeia-web.service
 ```
+
+## Legacy subdomain
+
+`deploy/nginx/machinelearning-arcade.pablodiaz.eu` remains as reference for the
+old host name; prefer `arcaderooms.uk` going forward.
