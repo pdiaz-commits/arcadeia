@@ -57,7 +57,14 @@ ADMIN_TOKEN = os.environ.get("ARCADEIA_ADMIN_TOKEN", "")
 
 MAX_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MB, matches mockup's stated limit
 
-app = FastAPI(title="Arcade AI", version=__version__)
+_enable_docs = os.environ.get("ENABLE_API_DOCS", "").strip().lower() in ("1", "true", "yes", "on")
+app = FastAPI(
+    title="Arcade AI",
+    version=__version__,
+    docs_url="/docs" if _enable_docs else None,
+    redoc_url="/redoc" if _enable_docs else None,
+    openapi_url="/openapi.json" if _enable_docs else None,
+)
 
 
 def _require_admin(x_admin_token: Optional[str]) -> None:
