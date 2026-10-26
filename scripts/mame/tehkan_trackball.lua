@@ -83,10 +83,13 @@ local accum_y = 0
 function M.inject_trackball(fld_x, fld_y, fld_btn, dx, dy, kick)
     accum_x = accum_x + (dx or 0)
     accum_y = accum_y + (dy or 0)
-    -- NO wrap-around (esto era la causa del bug v17.6:
-    -- los wrap cruzados generaban deltas -214 que MAME rechazaba).
-    fld_x:set_value(math.floor(accum_x))
-    fld_y:set_value(math.floor(accum_y))
+    -- v19 (oct 2026): MAME 0.288 RECORTA los valores fuera de 0..255.
+    -- Sin el % 256 el acumulador pasaba de 256 en pocos frames y el juego
+    -- leía siempre 256: el trackball no se movía nunca (medido con
+    -- ioport P1X:read()). El juego resta lecturas en 8 bits, así que dar
+    -- la vuelta en 256 es correcto y no genera saltos.
+    fld_x:set_value(math.floor(accum_x) % 256)
+    fld_y:set_value(math.floor(accum_y) % 256)
     if fld_btn then fld_btn:set_value(kick and 1 or 0) end
 end
 

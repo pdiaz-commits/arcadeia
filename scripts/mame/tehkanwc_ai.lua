@@ -127,6 +127,9 @@ local fld_p1x = io.ports[":P1X"].fields["Trackball X"]
 local fld_p1y = io.ports[":P1Y"].fields["Trackball Y"]
 local fld_btn = io.ports[":P1BUT"].fields["P1 Button 1"]
 
+-- Forward decl: handle_set_pieces / cascade call apply_input before its body.
+local apply_input
+
 local cpu = manager.machine.devices[":maincpu"]
 local mem = cpu.spaces["program"]
 local SPRITE_BASE = 0xe800
@@ -720,7 +723,7 @@ local function match_attract(ball, player)
     return nil
 end
 
-local function apply_input(raw_dx, raw_dy, kick)
+apply_input = function(raw_dx, raw_dy, kick)
     local dx, dy = TB.hold_apply(hold, raw_dx, raw_dy)
     TB.inject_trackball(fld_p1x, fld_p1y, fld_btn, dx, dy, kick)
 end
@@ -777,36 +780,36 @@ local function diag_log(phase_s, bd_v, dx_v, dy_v, kick_v,
 end
 
 local function boot_sequence()
+    -- Arranque robusto: varias monedas + starts espaciados.
+    -- NO inyectar trackball aquí: en Tehkan el menú de equipos
+    -- usa el trackball y el zig-zag del boot saltaba al GAME OVER
+    -- del attract sin empezar partido.
     if frame == 1 then force_freeplay() end
-    if frame == 90 then
-        press_sys(SYS_COIN1, true)
-        press_key("KEYCODE_5", true)
-    elseif frame == 104 then
-        press_sys(SYS_COIN1, false)
-        press_key("KEYCODE_5", false)
-    elseif frame == 150 then
-        press_sys(SYS_START1, true)
-        press_key("KEYCODE_1", true)
-    elseif frame == 162 then
-        press_sys(SYS_START1, false)
-        press_key("KEYCODE_1", false)
-    elseif frame == 300 then
-        press_sys(SYS_START1, true)
-        press_key("KEYCODE_1", true)
-    elseif frame == 312 then
-        press_sys(SYS_START1, false)
-        press_key("KEYCODE_1", false)
-    elseif frame == 450 then
-        press_sys(SYS_START1, true)
-        press_key("KEYCODE_1", true)
-    elseif frame == 462 then
-        press_sys(SYS_START1, false)
-        press_key("KEYCODE_1", false)
-    elseif frame == 520 then boot_done = true
+
+    local function pulse_coin(on)
+        press_sys(SYS_COIN1, on)
+        press_key("KEYCODE_5", on)
     end
-    if frame >= 180 and frame % 2 == 0 then
-        local zig = (frame % 4 == 0) and 40 or -40
-        TB.inject_trackball(fld_p1x, fld_p1y, fld_btn, zig, -40, false)
+    local function pulse_start(on)
+        press_sys(SYS_START1, on)
+        press_key("KEYCODE_1", on)
+    end
+
+    -- 3 monedas (por si el DIP o el credit counter pide más de 1)
+    if frame == 120 or frame == 200 or frame == 280 then
+        pulse_coin(true)
+    elseif frame == 134 or frame == 214 or frame == 294 then
+        pulse_coin(false)
+    -- Starts: título → select equipo → kickoff
+    elseif frame == 360 or frame == 480 or frame == 600
+        or frame == 720 or frame == 840 then
+        pulse_start(true)
+    elseif frame == 372 or frame == 492 or frame == 612
+        or frame == 732 or frame == 852 then
+        pulse_start(false)
+    elseif frame == 900 then
+        boot_done = true
+        TB.reset()
     end
 end
 
@@ -887,6 +890,332 @@ local function act_heuristic()
     debug_predicted = false
 end
 
+-- v19 — agente reescrito con datos medidos en partidas reales (oct 2026).
+-- Errores de v18 que corrige:
+--  1. El "jugador" era la sombra del balón (code 0x10, misma posición
+--     que el balón) → distancia 0 → creía tener el balón siempre.
+--     Jugadores reales: code >= 0x80.
+--  2. No distinguía equipos. Color = attr & 0x0f: 0 = ROJO (nosotros),
+--     1 = AZUL (máquina), 2/3 = porteros.
+--  3. Posesión a 50 px (media pantalla). Medido: con el balón pegado
+--     al pie la distancia es <= ~10 px → usamos 14.
+--  4. La pantalla hace scroll, así que la Y de pantalla no dice dónde
+--     está la portería. Usamos el balón del minimapa (code 0x01,
+--     sx >= 220): y≈121 centro, ≈137 nuestra portería en la 1ª parte.
+--  5. Dirección de ataque: en cada saque inicial cada equipo está en su
+--     mitad. Si los rojos están debajo, atacamos hacia arriba. Así
+--     también detecta el cambio de campo del descanso.
+-- Marcador en RAM: 0xc100 = rojo, 0xc101 = máquina.
+local V19_GOAL_X      = 112
+local V19_POSSESS     = 12
+local V19_MM_CENTER   = 121
+local V19_MM_SHOOT   = 8    -- medido: 8 → 6G/6E/0P en 12 partidos (4, 14 y 20 peores)
+local V19_MM_HALF     = 16
+local v19_attack_dir  = -1   -- -1 = arriba, +1 = abajo
+local v19_mm_ball_y   = V19_MM_CENTER
+local V19_KICK_TAP      = 5    -- frames de botón: toque corto (0 = ráfagas antiguas 6+6)
+local V19_SHOT_SPEED    = 24   -- trackball al chutar: máx. 24 para que el tiro siga raso
+local V19_SHOT_DX       = 0    -- >0 = tiro cruzado (estilo humano), 0 = hacia el centro
+local V19_KICK_COOLDOWN = 32   -- frames de espera entre toques
+-- Ajustes que el entrenador (scripts/train_tehkan_params.py) puede cambiar
+local V19_DRIBBLE_SPEED = 58   -- velocidad hacia portería con el balón
+local V19_DRIBBLE_DX    = 38   -- corrección lateral máx. hacia el centro
+local V19_DODGE_AHEAD   = 44   -- distancia del defensa delante para esquivar
+local V19_DODGE_LAT     = 10   -- anchura de la zona de peligro
+local V19_DODGE_FWD     = 0   -- avance mientras esquiva
+local V19_LEAD          = 8    -- frames de anticipación al perseguir
+local V19_TACKLE_DIST   = 26   -- distancia para intentar la entrada
+local v19_kick_timer  = 0
+local v19_prev_ball   = nil
+
+local function v19_classify(sprites)
+    local ball, red, blue = nil, {}, {}
+    for _, s in ipairs(sprites) do
+        if s.code == 0x01 and s.sx >= 220 then
+            v19_mm_ball_y = s.sy
+        elseif s.sx < CROWD_PANEL_X then
+            if s.code == 0x0c then
+                ball = s
+            elseif s.code >= 0x80 then
+                local pal = s.attr & 0x0f
+                if pal == 0 then red[#red + 1] = s
+                elseif pal == 1 then blue[#blue + 1] = s end
+            end
+        end
+    end
+    return ball, red, blue
+end
+
+local v19_dir_candidate, v19_dir_streak = nil, 0
+local function v19_update_direction(ball, red, blue)
+    if #red < 4 or #blue < 4 or not ball then v19_dir_streak = 0; return end
+    if math.abs(ball.sx - 116) > 10 then return end
+    local rmin, rmax, bmin, bmax = 999, -999, 999, -999
+    for _, s in ipairs(red) do rmin = math.min(rmin, s.sy); rmax = math.max(rmax, s.sy) end
+    for _, s in ipairs(blue) do bmin = math.min(bmin, s.sy); bmax = math.max(bmax, s.sy) end
+    -- Solo cambiamos si la formación de saque se mantiene >= 30 frames
+    -- (en una grabación humana el detector se equivocó 2 veces ~5 s).
+    local seen = nil
+    if rmin > bmax - 4 then seen = -1 elseif bmin > rmax - 4 then seen = 1 end
+    if seen and seen == v19_dir_candidate then
+        v19_dir_streak = v19_dir_streak + 1
+    else
+        v19_dir_candidate, v19_dir_streak = seen, (seen and 1 or 0)
+    end
+    if seen and v19_dir_streak >= 30 then v19_attack_dir = seen end
+end
+
+local function v19_nearest(list, ball)
+    local best, bd = nil, 9999
+    for _, s in ipairs(list) do
+        local d = math.abs(s.sx - ball.sx) + math.abs(s.sy - ball.sy)
+        if d < bd then best, bd = s, d end
+    end
+    return best, bd
+end
+
+local function v19_in_shoot_zone()
+    local rival_end = V19_MM_CENTER + v19_attack_dir * V19_MM_HALF
+    return math.abs(v19_mm_ball_y - rival_end) <= V19_MM_SHOOT
+end
+
+-- IMITACIÓN: memoria de jugadas humanas (scripts/learn_tehkan_demos.py).
+-- Con balón, busca las K situaciones grabadas más parecidas y copia lo que
+-- hizo el humano (trackball + botón). Si ninguna se parece lo bastante,
+-- se usan las reglas de siempre.
+local V19_IMITATE    = 0    -- 1 = usar tus jugadas, 0 = solo reglas
+local V19_IMIT_K     = 7    -- vecinos que se consultan
+local V19_IMIT_MAXD  = 60   -- distancia máxima media para fiarse de la memoria
+local V19_IMIT_BTN   = 0    -- 1 = copiar también el botón, 0 = chutar con las reglas
+local V19_IMIT_GOALW = 70   -- % de distancia para jugadas que acabaron en gol (prefiere goles)
+local IMIT = nil
+if V19_IMITATE == 1 then
+    local ok, data = pcall(load_lua_module, ROOT .. "/scripts/mame/tehkan_imitation_data.lua")
+    if ok and type(data) == "table" and #data > 0 then IMIT = data end
+end
+local IW = { 4, 0.5, 2, 2, 1, 1, 0.5, 0.5 }   -- pesos de cada rasgo
+
+local function v19_imitate(me, ball, blue)
+    if not IMIT then return nil end
+    local d = v19_attack_dir
+    table.sort(blue, function(a, b)
+        return math.abs(a.sx - me.sx) + math.abs(a.sy - me.sy) < math.abs(b.sx - me.sx) + math.abs(b.sy - me.sy)
+    end)
+    local function rel(i)
+        local b = blue[i]
+        if not b then return 60, 60 end
+        return TB.clamp(b.sx - me.sx, -60, 60), TB.clamp((b.sy - me.sy) * -d, -60, 60)
+    end
+    local r1x, r1y = rel(1)
+    local r2x, r2y = rel(2)
+    local f = { (121 - v19_mm_ball_y) * (-d), me.sx, ball.sx - me.sx, (ball.sy - me.sy) * (-d), r1x, r1y, r2x, r2y }
+    local K = V19_IMIT_K
+    local best = {}   -- {dist, idx} ordenado
+    for i = 1, #IMIT do
+        local s = IMIT[i]
+        local acc = 0
+        for j = 1, 8 do
+            local e = (f[j] - s[j]) * IW[j]
+            acc = acc + e * e
+        end
+        if s[12] == 1 then acc = acc * (V19_IMIT_GOALW / 100) ^ 2 end
+        if #best < K or acc < best[#best][1] then
+            local pos = #best + 1
+            while pos > 1 and best[pos - 1][1] > acc do pos = pos - 1 end
+            table.insert(best, pos, { acc, i })
+            if #best > K then best[#best] = nil end
+        end
+    end
+    local sd, ax, fw, bt = 0, 0, 0, 0
+    for _, b in ipairs(best) do
+        local s = IMIT[b[2]]
+        sd = sd + math.sqrt(b[1]); ax = ax + s[9]; fw = fw + s[10]; bt = bt + s[11]
+    end
+    local n = #best
+    if n == 0 or sd / n > V19_IMIT_MAXD then return nil end
+    return ax / n, (fw / n) * d, (bt * 2 > n), sd / n
+end
+
+local function act_v19()
+    local sprites = read_sprites()
+    local ball, red, blue = v19_classify(sprites)
+    if not ball or #red == 0 then
+        phase = "WAIT"
+        apply_input(0, 0, false)
+        return
+    end
+    v19_update_direction(ball, red, blue)
+
+    local me, my_d = v19_nearest(red, ball)
+    local foe, foe_d = v19_nearest(blue, ball)
+    local dx, dy, kick = 0, 0, false
+
+    -- velocidad del balón para anticipar
+    local vx, vy = 0, 0
+    if v19_prev_ball then vx, vy = ball.sx - v19_prev_ball.sx, ball.sy - v19_prev_ball.sy end
+    if math.abs(vx) > 12 or math.abs(vy) > 12 then vx, vy = 0, 0 end -- salto de scroll
+    v19_prev_ball = { sx = ball.sx, sy = ball.sy }
+
+    local imitating, imit_move = false, false
+    if my_d <= V19_POSSESS and my_d <= foe_d and IMIT then
+        local ix, iy, ik, idist = v19_imitate(me, ball, blue)
+        if ix then
+            dx, dy = ix, iy
+            if V19_IMIT_BTN == 1 then
+                kick = ik
+                imitating = true
+                phase = string.format("IMITA%s %d", ik and "+CHUT" or "", math.floor(idist))
+            elseif v19_in_shoot_zone() then
+                -- moverse como el humano, pero chutar con la regla (toque corto)
+                dx = TB.clamp((V19_GOAL_X - me.sx) * 2, -V19_SHOT_SPEED, V19_SHOT_SPEED)
+                dy = v19_attack_dir * V19_SHOT_SPEED
+                kick = true
+                phase = "IMITA:SHOOT"
+            else
+                kick = false
+                phase = string.format("IMITA %d", math.floor(idist))
+            end
+            imit_move = true
+        end
+    end
+    if imit_move then
+        -- movimiento copiado del humano
+    elseif my_d <= V19_POSSESS and my_d <= foe_d then
+        -- CON BALÓN: correr hacia la portería rival esquivando
+        dy = v19_attack_dir * V19_DRIBBLE_SPEED
+        dx = TB.clamp((V19_GOAL_X - me.sx), -V19_DRIBBLE_DX, V19_DRIBBLE_DX)
+        local threat, tdist = nil, 9999
+        for _, b in ipairs(blue) do
+            local ahead = (b.sy - me.sy) * v19_attack_dir
+            local lat = b.sx - me.sx
+            if ahead > 0 and ahead < V19_DODGE_AHEAD and math.abs(lat) < V19_DODGE_LAT then
+                if ahead < tdist then threat, tdist = b, ahead end
+            end
+        end
+        if threat then
+            local side = (threat.sx >= me.sx) and -1 or 1
+            if me.sx < 30 then side = 1 elseif me.sx > 180 then side = -1 end
+            dx = side * SPRINT
+            dy = v19_attack_dir * V19_DODGE_FWD
+            phase = "DODGE"
+        else
+            phase = "DRIBBLE"
+        end
+        if v19_in_shoot_zone() then
+            dx = TB.clamp((V19_GOAL_X - me.sx) * 2, -V19_SHOT_SPEED, V19_SHOT_SPEED)
+            if V19_SHOT_DX > 0 then
+                -- tiro cruzado como el humano: empujar hacia el lado contrario
+                dx = ((me.sx < V19_GOAL_X) and 1 or -1) * V19_SHOT_DX
+            end
+            dy = v19_attack_dir * V19_SHOT_SPEED
+            kick = true
+            phase = "SHOOT"
+        end
+    else
+        -- SIN BALÓN: ir a por él anticipando su trayectoria
+        local tx = ball.sx + vx * V19_LEAD
+        local ty = ball.sy + vy * V19_LEAD
+        dx = TB.clamp((tx - me.sx) * 3, -SPRINT, SPRINT)
+        dy = TB.clamp((ty - me.sy) * 3, -SPRINT, SPRINT)
+        phase = "CHASE"
+        -- entrada si el rival lo lleva y estamos encima
+        if foe and foe_d <= V19_POSSESS and my_d <= V19_TACKLE_DIST then
+            kick = true
+            phase = "TACKLE"
+        end
+    end
+
+    -- Toque corto de V19_KICK_TAP frames y espera de V19_KICK_COOLDOWN.
+    -- (Medido: la altura del tiro depende sobre todo de la velocidad del
+    -- trackball al chutar, ver V19_SHOT_SPEED.)
+    if imitating then
+        v19_kick_timer = 0   -- botón tal cual lo pulsaba el humano
+    elseif V19_KICK_TAP == 0 then
+        -- modo antiguo: ráfagas de 6 frames pulsado / 6 suelto
+        if kick then
+            v19_kick_timer = v19_kick_timer + 1
+            if v19_kick_timer % 12 >= 6 then kick = false end
+        else
+            v19_kick_timer = 0
+        end
+    elseif kick then
+        v19_kick_timer = v19_kick_timer + 1
+        if v19_kick_timer > V19_KICK_TAP then kick = false end
+        if v19_kick_timer >= V19_KICK_TAP + V19_KICK_COOLDOWN then v19_kick_timer = 0 end
+    elseif v19_kick_timer > 0 then
+        v19_kick_timer = v19_kick_timer + 1
+        if v19_kick_timer >= V19_KICK_TAP + V19_KICK_COOLDOWN then v19_kick_timer = 0 end
+    end
+
+    debug_pos = string.format("v19 %s dir=%s d=%d mm=%d",
+        phase, v19_attack_dir < 0 and "UP" or "DN", my_d, v19_mm_ball_y)
+    apply_input(dx, dy, kick)
+end
+
+-- MODO HUMANO (enseñanza por imitación): la IA NO toca los controles.
+-- Juegas tú con el ratón como trackball y se graba cada frame:
+-- situación (balón, tu jugador, rivales cercanos, posición en el campo)
+-- + lo que haces (movimiento del trackball y botón) + marcador.
+-- CSV en logs/tehkan_demos/. Lo usa scripts/learn_tehkan_demos.py.
+local HUMAN_FILE = nil
+local human_prev_x, human_prev_y = nil, nil
+local human_port_x = manager.machine.ioport.ports[":P1X"]
+local human_port_y = manager.machine.ioport.ports[":P1Y"]
+local human_port_b = manager.machine.ioport.ports[":P1BUT"]
+
+local function signed8(d)
+    d = d % 256
+    if d > 127 then d = d - 256 end
+    return d
+end
+
+local function act_human()
+    if not HUMAN_FILE then
+        pcall(function() os.execute('mkdir -p "' .. ROOT .. '/logs/tehkan_demos"') end)
+        local path = ROOT .. "/logs/tehkan_demos/demo_" .. os.date("%Y%m%d_%H%M%S") .. ".csv"
+        HUMAN_FILE = _G.io.open(path, "w")
+        if HUMAN_FILE then
+            HUMAN_FILE:write("frame,us,them,won,dir,mm_y,me_x,me_y,ball_x,ball_y,ball_vx,ball_vy,"
+                .. "my_d,foe_d,r1dx,r1dy,r2dx,r2dy,r3dx,r3dy,tb_dx,tb_dy,btn\n")
+        end
+        phase = "HUMANO: grabando"
+    end
+    local x, y = human_port_x:read() & 0xff, human_port_y:read() & 0xff
+    local tdx = human_prev_x and signed8(x - human_prev_x) or 0
+    local tdy = human_prev_y and signed8(y - human_prev_y) or 0
+    human_prev_x, human_prev_y = x, y
+    local btn = ((human_port_b:read() & 0x20) == 0) and 1 or 0
+
+    local sprites = read_sprites()
+    local ball, red, blue = v19_classify(sprites)
+    if not ball or #red == 0 or not HUMAN_FILE then return end
+    v19_update_direction(ball, red, blue)
+    local me, my_d = v19_nearest(red, ball)
+    local _, foe_d = v19_nearest(blue, ball)
+    local vx, vy = 0, 0
+    if v19_prev_ball then vx, vy = ball.sx - v19_prev_ball.sx, ball.sy - v19_prev_ball.sy end
+    if math.abs(vx) > 12 or math.abs(vy) > 12 then vx, vy = 0, 0 end
+    v19_prev_ball = { sx = ball.sx, sy = ball.sy }
+    -- 3 rivales más cercanos a mi jugador (relativos, orientados al ataque)
+    table.sort(blue, function(a, b)
+        return math.abs(a.sx - me.sx) + math.abs(a.sy - me.sy) < math.abs(b.sx - me.sx) + math.abs(b.sy - me.sy)
+    end)
+    local rel = {}
+    for i = 1, 3 do
+        local b = blue[i]
+        if b then rel[#rel + 1] = (b.sx - me.sx) .. "," .. ((b.sy - me.sy) * -v19_attack_dir)
+        else rel[#rel + 1] = "99,99" end
+    end
+    local mem_ = manager.machine.devices[":maincpu"].spaces["program"]
+    HUMAN_FILE:write(string.format("%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%s,%d,%d,%d\n",
+        frame, mem_:read_u8(0xc100), mem_:read_u8(0xc101), mem_:read_u8(0xc0c0),
+        v19_attack_dir, v19_mm_ball_y, me.sx, me.sy, ball.sx, ball.sy, vx, vy,
+        my_d, foe_d or 999, table.concat(rel, ","), tdx, tdy, btn))
+    if frame % 60 == 0 then HUMAN_FILE:flush() end
+    phase = "HUMANO: grabando"
+    debug_pos = string.format("GRABANDO  %d-%d  ronda %d", mem_:read_u8(0xc100), mem_:read_u8(0xc101), mem_:read_u8(0xc0c0) + 1)
+end
+
 local function act_random()
     local dx = ((frame % 7) - 3) * 18
     local dy = -SPRINT
@@ -896,8 +1225,12 @@ end
 local function act_agent()
     if AGENT == "random" then
         act_random()
-    else
+    elseif AGENT == "v18" then
         act_heuristic()
+    elseif AGENT == "human" then
+        act_human()
+    else
+        act_v19()
     end
 end
 
@@ -906,8 +1239,8 @@ local function draw_overlay()
     if not screen then return end
     local mode = debug_pos
     if not boot_done then
-        if frame < 104 then mode = "COIN(5)"
-        elseif frame < 312 then mode = "START(1)"
+        if frame < 300 then mode = "COIN(5)"
+        elseif frame < 900 then mode = "START(1)"
         else mode = "START..." end
     elseif mode == "" then
         local score_str = score_valid
