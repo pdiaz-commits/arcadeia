@@ -35,8 +35,12 @@ local fld_rot = safe_field(in1, 0x1)
 
 local mem = manager.machine.devices[":maincpu"].spaces["program"]
 local PF_BASE = 0x1000
-local COL_LO, COL_HI = 2, 11
-local ROW_LO, ROW_HI = 4, 24
+-- Pozo real (volcado de RAM, MAME 0.288): columnas 4..13 (10 de ancho),
+-- filas 3..24; la pieza nace en la fila 3, col 8. Cols 0..3 son el muro
+-- izquierdo y el NEXT se pinta en filas 3..4, cols 0..4 (se ignora).
+local COL_LO, COL_HI = 4, 13
+local ROW_LO, ROW_HI = 3, 24
+local PREVIEW_ROW_HI, PREVIEW_COL_HI = 4, 4
 local NCOL = COL_HI - COL_LO + 1
 local NROW = ROW_HI - ROW_LO + 1
 
@@ -53,9 +57,18 @@ local BOOT_LEN = 320
 -- Tablero bloqueado (sin pieza activa). false = vacío.
 local locked = {}
 local plan = nil          -- {dx, target_cx, score}
-local rot_taps_left = 0   -- rotaciones pendientes al nacer pieza
+local rot_tries = 0       -- giros intentados con la pieza actual
+local new_piece_flag = false
+local last_minr = nil
 local rot_cooldown = 0
 local move_cooldown = 0
+-- Pulsaciones sostenidas: el juego no registra taps de 1 frame
+-- (clear_all() suelta todo cada frame). HOLD_FRAMES = frames extra.
+local HOLD_FRAMES = 2
+local hold_field = nil
+local hold_left = 0
+-- En arranque en frío la placa ignora la moneda durante ~100 frames.
+local BOOT_DELAY = 100
 local last_piece_sig = ""
 local no_piece_frames = 0
 
@@ -108,6 +121,7 @@ local function read_filled()
     for row = ROW_LO, ROW_HI do
         for col = COL_LO, COL_HI do
             local t = tile(row, col)
+            if row <= PREVIEW_ROW_HI and col <= PREVIEW_COL_HI then t = 0 end
             local on = (t ~= 0)
             filled[idx(row, col)] = on
             hash = (hash * 31 + t) % 2147483647
@@ -129,6 +143,45 @@ local function extract_piece(filled)
         end
     end
     return cells
+end
+
+-- Al aterrizar una pieza la siguiente aparece en el mismo frame, así que
+-- "no-locked" contiene pieza vieja + nueva (>4 celdas). Se separan en
+-- componentes conexas: la más alta es la pieza activa; el resto se bloquea.
+local function split_active(cells)
+    local key = {}
+    for i, c in ipairs(cells) do key[c.row * 100 + c.col] = i end
+    local comp, comps = {}, {}
+    for i, c in ipairs(cells) do
+        if not comp[i] then
+            local group, stack = {}, { i }
+            comp[i] = #comps + 1
+            while #stack > 0 do
+                local j = table.remove(stack)
+                local cj = cells[j]
+                group[#group + 1] = cj
+                for _, d in ipairs({ { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } }) do
+                    local k = key[(cj.row + d[1]) * 100 + cj.col + d[2]]
+                    if k and not comp[k] then comp[k] = comp[i]; stack[#stack + 1] = k end
+                end
+            end
+            comps[#comps + 1] = group
+        end
+    end
+    if #comps < 2 then return cells end
+    local best, best_top = nil, 99
+    for n, g in ipairs(comps) do
+        local top = 99
+        for _, c in ipairs(g) do if c.row < top then top = c.row end end
+        if top < best_top then best, best_top = n, top end
+    end
+    for n, g in ipairs(comps) do
+        if n ~= best then
+            for _, c in ipairs(g) do locked[idx(c.row, c.col)] = true end
+        end
+    end
+    new_piece_flag = true
+    return comps[best]
 end
 
 local function piece_signature(cells)
@@ -291,14 +344,49 @@ local function score_board(board, cleared, landing_row)
     return cleared * 760 - holes * 510 - bump * 18 - agg * 12 - land * 25
 end
 
-local function plan_placement(cells)
-    local minc, maxc = piece_bounds(cells)
-    local width = maxc - minc + 1
+-- Las 4 rotaciones (sin duplicados) de una pieza, normalizadas a (0,0).
+local function orientations(cells)
+    local minc, _, minr = piece_bounds(cells)
+    local cur = {}
+    for i, c in ipairs(cells) do cur[i] = { row = c.row - minr, col = c.col - minc } end
+    local out, seen = {}, {}
+    for _ = 1, 4 do
+        local sig = piece_signature(cur)
+        if not seen[sig] then
+            seen[sig] = true
+            out[#out + 1] = { cells = cur, sig = sig }
+        end
+        -- giro 90°: (r, c) -> (c, -r), y renormalizar
+        local rot, mc, mr = {}, 99, 99
+        for i, c in ipairs(cur) do
+            rot[i] = { row = c.col, col = -c.row }
+            if rot[i].col < mc then mc = rot[i].col end
+            if rot[i].row < mr then mr = rot[i].row end
+        end
+        for _, c in ipairs(rot) do c.row = c.row - mr; c.col = c.col - mc end
+        cur = rot
+    end
+    return out
+end
+
+-- Prueba cada orientación × columna; devuelve la mejor colocación.
+-- only_current=true: solo la orientación actual (si no se puede rotar).
+local function plan_placement(cells, only_current)
+    local _, _, top = piece_bounds(cells)
+    top = math.max(top, ROW_LO)
+    local shapes
+    if only_current or #cells ~= 4 then
+        local minc, _, minr = piece_bounds(cells)
+        shapes = { { cells = translate(cells, -minc, -minr), sig = piece_signature(cells) } }
+    else
+        shapes = orientations(cells)
+    end
     local best, best_s = nil, -1e18
-    -- dx relativo al bounding box izquierdo
-    for left = COL_LO, COL_HI - width + 1 do
-        local dx = left - minc
-        local shifted = translate(cells, dx, 0)
+    for _, shape in ipairs(shapes) do
+      local _, w = piece_bounds(shape.cells)
+      for left = COL_LO, COL_HI - w do
+        local shifted = translate(shape.cells, left, top)
+        local dx = left
         if can_place(shifted, locked) then
             local dropped = drop_piece(shifted, locked)
             if can_place(dropped, locked) then
@@ -313,6 +401,7 @@ local function plan_placement(cells)
                     best = {
                         dx = dx,
                         target_left = left,
+                        target_shape = shape.sig,
                         target_cx = cx / #dropped,
                         score = s,
                         cleared = cleared,
@@ -320,13 +409,15 @@ local function plan_placement(cells)
                 end
             end
         end
+      end
     end
     return best
 end
 
 local function do_boot_pulse(pf)
-    if pf == 20 then press(fld_coin, true)
-    elseif pf == 35 then press(fld_coin, false)
+    -- La moneda se mantiene 15 frames: clear_all() la suelta cada frame,
+    -- así que un pulso de 1 frame no lo registra el juego (CREDITS 0).
+    if pf >= 20 and pf <= 35 then press(fld_coin, true)
     elseif pf >= 80 and pf <= 95 then press(fld_rot, true)
     elseif pf == 96 then press(fld_rot, false)
     elseif pf >= 130 and pf <= 175 then
@@ -338,11 +429,12 @@ end
 
 local function boot()
     clear_all()
-    do_boot_pulse(frame)
-    if frame == 20 then log("coin") end
-    if frame == 80 then log("start→select") end
-    if frame == 200 then log("confirm→play") end
-    if frame >= BOOT_LEN then
+    local pf = frame - BOOT_DELAY
+    do_boot_pulse(pf)
+    if pf == 20 then log("coin") end
+    if pf == 80 then log("start→select") end
+    if pf == 200 then log("confirm→play") end
+    if pf >= BOOT_LEN then
         boot_done = true
         games = 1
         stuck_frames = 0
@@ -365,7 +457,12 @@ end
 local function act()
     local in_recover = frame < recover_until
     local filled, hash, fill_n = read_filled()
+    -- Tras borrar líneas el tablero baja: olvida bloqueos que ya están vacíos.
+    for i, v in pairs(locked) do
+        if v and not filled[i] then locked[i] = false end
+    end
     local cells = extract_piece(filled)
+    if #cells > 4 then cells = split_active(cells) end
 
     if not in_recover then
         if hash ~= last_hash then
@@ -385,7 +482,12 @@ local function act()
     end
 
     clear_all()
+    if hold_left > 0 and hold_field and not in_recover then
+        press(hold_field, true)
+        hold_left = hold_left - 1
+    end
     if in_recover then
+        hold_left = 0
         local pf = frame - (recover_until - BOOT_LEN)
         do_boot_pulse(pf)
         debug_info = string.format("RECOVER %d g=%d", pf, games)
@@ -409,45 +511,49 @@ local function act()
     local cx = select(1, piece_center(cells))
     local minc, maxc, minr, maxr = piece_bounds(cells)
 
-    -- Nueva pieza → planificar (+ 1 rotación exploratoria si es alta/estrecha)
-    if sig ~= last_piece_sig then
+    -- Pieza nueva: se acaba de bloquear la anterior, o la pieza "salta"
+    -- hacia arriba (girar sólo la desplaza 1-2 filas).
+    local is_new = new_piece_flag or last_piece_sig == ""
+        or (last_minr and minr < last_minr - 2)
+    new_piece_flag = false
+    last_minr = minr
+    if is_new then
         last_piece_sig = sig
         plan = plan_placement(cells)
-        local height = maxr - minr + 1
-        local width = maxc - minc + 1
-        -- Piezas altas (I vertical, etc.): prueba 1 rotación al nacer
-        if width <= 2 and height >= 3 then
-            rot_taps_left = 1
-        else
-            rot_taps_left = 0
-        end
+        rot_tries = 0
         rot_cooldown = 0
         move_cooldown = 0
         if plan then
-            log(string.format("PLAN left=%d sc=%.0f clr=%d cx=%.1f",
-                plan.target_left, plan.score, plan.cleared, plan.target_cx))
+            log(string.format("PLAN left=%d sc=%.0f clr=%d cx=%.1f shape=%s",
+                plan.target_left, plan.score, plan.cleared, plan.target_cx, plan.target_shape))
         end
     elseif plan == nil then
         plan = plan_placement(cells)
     end
 
-    -- Re-plan tras rotar
-    if rot_taps_left == 0 and rot_cooldown == 1 then
-        plan = plan_placement(cells)
-        rot_cooldown = 0
-    end
-
     if rot_cooldown > 0 then rot_cooldown = rot_cooldown - 1 end
     if move_cooldown > 0 then move_cooldown = move_cooldown - 1 end
 
-    -- 1) Rotar si toca (tap corto)
-    if rot_taps_left > 0 and rot_cooldown == 0 then
-        press(fld_rot, true)
-        rot_taps_left = rot_taps_left - 1
-        rot_cooldown = 10  -- espera a que la pieza rote en RAM
-        debug_info = string.format("ROT left=%d", rot_taps_left)
-        return
+    -- 1) Girar hasta que la forma en RAM coincida con la planificada
+    if plan and #cells == 4 and plan.target_shape and sig ~= plan.target_shape then
+        if rot_cooldown > 0 then
+            debug_info = "ROT wait"
+            return
+        end
+        if rot_tries < 4 then
+            press(fld_rot, true)
+            hold_field, hold_left = fld_rot, HOLD_FRAMES
+            rot_tries = rot_tries + 1
+            rot_cooldown = 8  -- 3 pulsado + espera a que gire en RAM
+            debug_info = string.format("ROT %d", rot_tries)
+            return
+        end
+        -- No gira (pared/bloques): replanifica con la orientación actual
+        plan = plan_placement(cells, true)
+        log("ROT bloqueada → replan sin girar")
+        if not plan then return end
     end
+    if rot_cooldown > 0 then return end
 
     if not plan then
         press(fld_down, true)
@@ -461,12 +567,14 @@ local function act()
         if move_cooldown == 0 then
             if err < 0 then
                 press(fld_right, true)
+                hold_field, hold_left = fld_right, HOLD_FRAMES
                 debug_info = string.format("→ %d→%d sc=%.0f", minc, plan.target_left, plan.score)
             else
                 press(fld_left, true)
+                hold_field, hold_left = fld_left, HOLD_FRAMES
                 debug_info = string.format("← %d→%d sc=%.0f", minc, plan.target_left, plan.score)
             end
-            move_cooldown = 4
+            move_cooldown = 6  -- 3 pulsado + 3 suelto
         else
             debug_info = string.format("hold %d→%d", minc, plan.target_left)
         end
