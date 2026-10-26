@@ -114,22 +114,10 @@ local function log_mode(mode)
 end
 
 local function read_score_bcd()
-    -- Score típico en work RAM (BCD 6 dígitos); probar ventana conocida
-    local best, best_val = 0, 0
-    for base = 0xc040, 0xc080 do
-        local v = 0
-        local ok = true
-        for i = 0, 2 do
-            local b = mem:read_u8(base + i)
-            if b == 0xff then ok = false break end
-            local hi = math.floor(b / 16)
-            local lo = b % 16
-            if hi > 9 or lo > 9 then ok = false break end
-            v = v * 100 + hi * 10 + lo
-        end
-        if ok and v > best_val and v < 999999 then best_val = v; best = base end
-    end
-    return best_val
+    -- Score BCD en 0xc304 (alto) : 0xc305 (bajo). Verificado por sonda de RAM
+    -- (2026-10-26); la ventana 0xc040-0xc080 anterior era incorrecta.
+    local function bcd(b) return math.floor(b / 16) * 10 + b % 16 end
+    return bcd(mem:read_u8(0xc304)) * 100 + bcd(mem:read_u8(0xc305))
 end
 
 local function press_sys(mask, on)
