@@ -1,5 +1,10 @@
--- Wonder Boy — agente platformer (v28)
+-- Wonder Boy — agente platformer (v29)
 -- Combate: disparar SIEMPRE con hacha; saltar solo si falla tras ~55 frames.
+-- v29 (2026-10-26): 0x8d NO era huevo sino un enemigo de suelo letal; estaba en
+-- EGG_CODES y el agente se plantaba a "romperlo" y moria (techo fijo score 45).
+-- Reclasificado como enemigo (GROUND_ENEMY_CODES) -> salta/ataca: score 45 -> ~465.
+-- Ademas: salto proactivo de ocio y override de peligro de terreno sobre la
+-- codicia de huevos (block_jumps). Verificado con eval_wboy.sh (6 partidas).
 
 local ROOT = "/Users/pablo/Documents/arcade-ai"
 local AGENT = "heuristic"
@@ -24,7 +29,11 @@ local PLAYER_CODES  = { [0x83] = true, [0x82] = true, [0x84] = true }
 local ROCK_CODES    = { [0x7c] = true, [0x7b] = true, [0x7f] = true }
 local FIRE_CODES    = { [0x69] = true, [0x67] = true, [0xd8] = true, [0x68] = true }
 local WASP_CODES    = { [0x48] = true, [0x49] = true, [0x4a] = true, [0x4b] = true }
-local EGG_CODES     = { [0x8d] = true, [0x8c] = true, [0x8e] = true }
+local EGG_CODES     = { [0x8c] = true, [0x8e] = true }
+-- 0x8d: autopsia (2026-10-26) confirma que NO es huevo sino un ENEMIGO de suelo
+-- letal (se acerca a dy=0 y mata al contacto en dx~19). Antes estaba en
+-- EGG_CODES/PICKUP_CODES, asi que el agente se plantaba a "romperlo" y moria.
+local GROUND_ENEMY_CODES = { [0x8d] = true }
 local FRUIT_CODES   = { [0x87] = true, [0x8f] = true, [0x91] = true, [0x88] = true, [0x89] = true, [0x8a] = true, [0x8b] = true, [0x90] = true, [0x92] = true }
 local WEAPON_CODES  = { [0x80] = true, [0x81] = true, [0x85] = true, [0x86] = true }
 local SKATE_CODES   = { [0x85] = true }
@@ -34,7 +43,7 @@ local PICKUP_CODES  = {
     [0x80] = true, [0x81] = true, [0x85] = true, [0x86] = true,
     [0x87] = true, [0x8f] = true, [0x91] = true,
     [0x88] = true, [0x89] = true, [0x8a] = true, [0x8b] = true,
-    [0x90] = true, [0x92] = true, [0x8d] = true, [0x8c] = true, [0x8e] = true,
+    [0x90] = true, [0x92] = true, [0x8c] = true, [0x8e] = true,
 }
 
 local SCAN_AHEAD    = 130
@@ -58,6 +67,11 @@ local AXE_TAP_FAST_OFF = 3
 -- Bug HIGH #4.
 local ATTACK_STALL_JUMP = 20
 local ENEMY_JUMP_DX     = 48
+-- Salto proactivo de ocio: el peligro mortal fijo es del FONDO (hueco/obstaculo
+-- de tilemap, no sprite), y Sega System 1 scrollea por registro HW -> no se ve
+-- venir en VRAM. Cuando el agente va ocioso (CORRE/DISPARA, sin enemigo ni
+-- recogida) y el mundo scrollea hacia el, salta con ritmo para librar el hueco.
+local IDLE_HOP_GAP      = 34
 
 local frame = 0
 local boot_done = (AGENT == "human_record")
@@ -83,6 +97,7 @@ local axe_cooldown = 0
 local axe_throw_frames = 0
 local attack_stall_frames = 0
 local last_enemy_offs = nil
+local idle_hop_cd = 0
 
 local io_state = { right = false, left = false, jump = false, axe = false }
 local last_mode = "CORRE"
@@ -256,6 +271,7 @@ local function is_fruit(code) return FRUIT_CODES[code] == true end
 local function is_pickup_code(code) return PICKUP_CODES[code] or EGG_CODES[code] end
 
 local function is_enemy_code(code)
+    if GROUND_ENEMY_CODES[code] then return true end
     if is_fire(code) or is_rock(code) or is_pickup_code(code) then return false end
     if is_wasp(code) then return true end
     if code >= 0x40 and code <= 0x6f then return true end
@@ -648,7 +664,24 @@ local function act_heuristic()
         end
     end
 
-    if block_jumps and not jump_enemy then cancel_jumps() end
+    -- Safety: peligro de terreno (fuego/roca/bad_egg) en ventana de salto manda
+    -- SIEMPRE sobre la codicia de huevos/fruta. El usuario confirmó (2026-10-26)
+    -- que lo que lo mata es un SPRITE, y moría atascado en fase huevo con
+    -- block_jumps=true, que anulaba los saltos de roca/fuego.
+    local danger_jump = false
+    if jump_sustain == 0 and jump_cd <= 0 then
+        if fire and jump_window("fire", ahead_dx(player, fire)) then
+            danger_jump = true
+        elseif rock and jump_window("rock", ahead_dx(player, rock)) then
+            danger_jump = true
+        elseif bad_egg then
+            local d = ahead_dx(player, bad_egg)
+            if d >= 12 and d <= 58 then danger_jump = true end
+        end
+    end
+    if danger_jump and block_jumps then block_jumps = false end
+
+    if block_jumps and not jump_enemy and not danger_jump then cancel_jumps() end
 
     if jump_sustain > 0 and not block_jumps then
         jump_sustain = jump_sustain - 1
@@ -725,7 +758,7 @@ local function act_heuristic()
     end
 
     -- 2) Huevo: romper/coger CORRIENDO — nunca saltar
-    local want_egg = egg_visible and not enemy_urgent
+    local want_egg = egg_visible and not enemy_urgent and not danger_jump
     if want_egg then
         cancel_jumps()
         jump = false
@@ -801,12 +834,22 @@ local function act_heuristic()
     end
 
     -- Sin arma: ir al huevo
-    if not has_weapon and egg and egg_dx <= 90 then
+    if not has_weapon and egg and egg_dx <= 90 and not danger_jump then
         cancel_jumps()
         jump = false
         block_jumps = true
         right = true
         mode = egg_dx <= 40 and "ROMPE-HUEVO" or "BUSCA-HUEVO"
+    end
+
+    -- Salto proactivo de ocio: libra huecos/obstaculos de fondo invisibles.
+    if idle_hop_cd > 0 then idle_hop_cd = idle_hop_cd - 1 end
+    if not combat and not block_jumps and not jump
+       and grounded and jump_sustain == 0 and jump_cd <= 0 and idle_hop_cd <= 0
+       and run_after_boot >= 360 and (mode == "CORRE" or mode == "DISPARA") then
+        mode = start_jump("SALTO-HUECO")
+        jump = true
+        idle_hop_cd = IDLE_HOP_GAP + JUMP_HOLD + JUMP_COOLDOWN
     end
 
     if jump_sustain > 0 and not block_jumps then
